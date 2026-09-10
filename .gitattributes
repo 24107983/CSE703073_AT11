@@ -1,0 +1,11 @@
+* text=auto
+*.md text
+*.txt text
+*.json text
+*.yml text
+*.yaml text
+*.php text
+*.js text
+*.vue text
+*.css text
+*.py text
