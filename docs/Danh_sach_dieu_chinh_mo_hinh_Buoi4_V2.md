@@ -7,14 +7,14 @@
 - Buổi: 4
 - Tài liệu đối chiếu:
   - API Contract v0.1
-  - Schema cơ sở dữ liệu
-  - ERD Buổi 3
+  - Mô hình dữ liệu / Schema
+  - ERD
 
 ---
 
 ## 2. Mục đích
 
-Đối chiếu hợp đồng API v0.1 với mô hình dữ liệu hiện tại nhằm phát hiện các trường dữ liệu mà API yêu cầu nhưng cơ sở dữ liệu chưa có.
+Đối chiếu hợp đồng API v0.1 với mô hình dữ liệu hiện tại để phát hiện các trường dữ liệu mà API hoặc yêu cầu chức năng cần nhưng cơ sở dữ liệu chưa có.
 
 Kết quả đối chiếu được sử dụng để đề xuất điều chỉnh mô hình dữ liệu trước khi triển khai API.
 
@@ -22,62 +22,54 @@ Kết quả đối chiếu được sử dụng để đề xuất điều chỉ
 
 ## 3. Kết quả đối chiếu
 
-| STT | API/Chức năng | Trường API yêu cầu | Bảng dữ liệu | Schema hiện tại | Kết quả | Đề xuất |
-|-----|---------------|--------------------|--------------|-----------------|---------|---------|
+| STT | API / Yêu cầu chức năng | Trường cần có | Bảng dữ liệu | Hiện trạng | Kết quả | Đề xuất |
+|---|---|---|---|---|---|---|
 | 1 | GET /mon-an | loai_mon | mon_an | Chưa có | Thiếu | Bổ sung trường loai_mon |
-| 2 | GET /mon-an/{id} | hinh_anh | mon_an | Chưa có | Thiếu | Bổ sung trường hinh_anh |
+| 2 | RQ-F-05 / GET /mon-an/{id} | hinh_anh | mon_an | Chưa có | Thiếu | Bổ sung trường hinh_anh |
 
 ---
 
 ## 4. Chi tiết điều chỉnh
 
-### 4.1. Bổ sung trường loai_mon
+### 4.1. Trường loai_mon
 
-**Bảng:** mon_an
+**Bảng:** `mon_an`
 
-**Vấn đề:**
+**Nguồn yêu cầu:** GET /api/mon-an
 
-API yêu cầu bộ lọc `loai_mon` trong endpoint:
+API Contract yêu cầu bộ lọc `loai_mon` cho chức năng danh sách món ăn. Hiện tại bảng `mon_an` chưa có trường `loai_mon`.
 
-GET /api/mon-an
-
-Trường này hiện chưa tồn tại trong bảng `mon_an`.
-
-**Đề xuất:**
-
-Bổ sung:
+**Đề xuất điều chỉnh:**
 
 `loai_mon VARCHAR(100)`
 
 **Mục đích:**
 
-Lưu loại món/nhóm món để hỗ trợ chức năng lọc món ăn theo loại món trong API.
+Lưu loại/nhóm món ăn và hỗ trợ chức năng lọc món ăn theo loại món.
 
 ---
 
-### 4.2. Bổ sung trường hinh_anh
+### 4.2. Trường hinh_anh
 
-**Bảng:** mon_an
+**Bảng:** `mon_an`
 
-**Vấn đề:**
+**Nguồn yêu cầu:** RQ-F-05
 
-Yêu cầu chức năng RQ-F-05 cần hiển thị hình ảnh món ăn. Tuy nhiên bảng `mon_an` hiện chưa có trường lưu hình ảnh.
+RQ-F-05 yêu cầu hiển thị hình ảnh món ăn. API Contract cũng ghi chú rằng bảng `mon_an` hiện chưa có trường `hinh_anh`.
 
-**Đề xuất:**
-
-Bổ sung:
+**Đề xuất điều chỉnh:**
 
 `hinh_anh TEXT`
 
 **Mục đích:**
 
-Lưu đường dẫn hoặc thông tin hình ảnh của món ăn để API có thể trả về dữ liệu hình ảnh cho giao diện.
+Lưu đường dẫn hoặc thông tin hình ảnh của món ăn để phục vụ việc hiển thị trên giao diện.
 
 ---
 
-## 5. Đề xuất cập nhật bảng mon_an
+## 5. Đề xuất cập nhật mô hình
 
-Sau khi thống nhất với nhóm, bảng `mon_an` dự kiến bổ sung:
+Bảng `mon_an` dự kiến bổ sung hai trường:
 
 ```sql
 loai_mon VARCHAR(100),
