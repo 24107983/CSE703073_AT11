@@ -1,308 +1,652 @@
-# API Contract v0.1
-## Dự án ĐT-11 – Bản đồ số du lịch ẩm thực vùng miền
-
-### 1. Thông tin chung
-
-- **Tên hệ thống:** Bản đồ số du lịch ẩm thực vùng miền
-- **Mã đề tài:** ĐT-11
-- **Phiên bản API:** v0.1
-- **Backend:** PHP 8.3 + Laravel 11
-- **Cơ sở dữ liệu:** MySQL 8
-- **Kiểu API:** RESTful API
-- **Định dạng dữ liệu:** JSON
-
-### 2. Mục đích
-
-API cung cấp giao diện trao đổi dữ liệu giữa hệ thống máy chủ và giao diện người dùng, phục vụ các chức năng tìm kiếm, lọc, xem thông tin món ăn, địa điểm/cơ sở ẩm thực, dữ liệu văn hóa, đánh giá, bộ sưu tập, hành trình ẩm thực và đóng góp dữ liệu.
-
-### 3. Phạm vi phiên bản v0.1
-
-Phiên bản API v0.1 tập trung vào các chức năng đã được xác định trong yêu cầu chức năng của hệ thống:
-
-- Tài khoản người dùng
-- Tìm kiếm
-- Lọc dữ liệu
-- Bản đồ và địa điểm
-- Chi tiết món ăn
-- Dữ liệu ẩm thực liên quan
-- Cơ sở ẩm thực
-- Đánh giá
-- Bộ sưu tập
-- Hành trình ẩm thực
-- Đóng góp dữ liệu
-- Quản trị đóng góp dữ liệu
-
-### 4. Quy ước chung
-
-- Base URL: `/api/v1`
-- Dữ liệu request/response sử dụng JSON.
-- Tên tài nguyên sử dụng dạng số nhiều hoặc cấu trúc tài nguyên nhất quán theo endpoint.
-- API danh sách sử dụng phân trang phía máy chủ.
-- Các dữ liệu đầu vào phải được kiểm tra hợp lệ trước khi xử lý.
-- API yêu cầu xác thực phải kiểm tra quyền truy cập tương ứng với vai trò người dùng.
-
-### 5. HTTP Status Code
-
-| Status | Ý nghĩa |
-|---|---|
-| 200 | Yêu cầu thành công |
-| 201 | Tạo tài nguyên thành công |
-| 204 | Xử lý thành công, không có nội dung trả về |
-| 401 | Chưa xác thực |
-| 403 | Không có quyền thực hiện |
-| 404 | Không tìm thấy tài nguyên |
-| 422 | Dữ liệu đầu vào không hợp lệ |
-| 500 | Lỗi máy chủ |
-## 6. Danh sách endpoint
-
-### 6.1. Tài khoản
-
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 1 | POST | `/api/v1/auth/register` | Đăng ký tài khoản | Public |
-| 2 | POST | `/api/v1/auth/login` | Đăng nhập | Public |
-| 3 | POST | `/api/v1/auth/logout` | Đăng xuất | User |
+# API CONTRACT v0.1
+
+## ĐT-11 – Bản đồ số du lịch ẩm thực vùng miền
+
+### 1. Mục đích
+
+Thống nhất hợp đồng API giữa V3 (máy chủ), V4 (giao diện) và V5 (kiểm thử).
+
+### 2. Công nghệ
+
+- Backend: PHP 8.3 + Laravel 11
+- Database: MySQL 8
+- API: REST
+- Phân trang: server-side
+- Xác thực và phân quyền theo vai trò
 
-### 6.2. Vùng miền và tỉnh/thành
+### 3. Quy ước chung
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 4 | GET | `/api/v1/vung-mien` | Lấy danh sách vùng miền | Public |
-| 5 | GET | `/api/v1/vung-mien/{id}` | Xem thông tin vùng miền | Public |
-| 6 | GET | `/api/v1/tinh-thanh` | Lấy danh sách tỉnh/thành | Public |
-| 7 | GET | `/api/v1/tinh-thanh/{id}` | Xem thông tin tỉnh/thành | Public |
+- Base URL: /api
+- Request/Response sử dụng JSON.
+- ID sử dụng kiểu số nguyên.
+- API danh sách sử dụng page và per_page.
+- per_page mặc định là 10.
+- per_page tối đa là 100.
+- Lỗi validation: HTTP 422.
+- Chưa đăng nhập: HTTP 401.
+- Không đủ quyền: HTTP 403.
 
-### 6.3. Món ăn
+### 4. Vai trò
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 8 | GET | `/api/v1/mon-an` | Tìm kiếm, lọc và phân trang món ăn | Public |
-| 9 | GET | `/api/v1/mon-an/{id}` | Xem chi tiết món ăn | Public |
-| 10 | GET | `/api/v1/mon-an/{id}/nguyen-lieu` | Xem nguyên liệu của món ăn | Public |
-| 11 | GET | `/api/v1/mon-an/{id}/mua-vu` | Xem mùa vụ liên quan | Public |
-| 12 | GET | `/api/v1/mon-an/{id}/dip-le` | Xem dịp lễ liên quan | Public |
-| 13 | GET | `/api/v1/mon-an/{id}/di-ung` | Xem thông tin dị ứng liên quan | Public |
-| 14 | GET | `/api/v1/mon-an/{id}/cau-chuyen` | Xem câu chuyện văn hóa | Public |
+- khach_du_lich
+- cong_tac_vien
+- quan_tri_vien
 
-### 6.4. Địa điểm và cơ sở ẩm thực
+### 5. Danh sách endpoint
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 15 | GET | `/api/v1/dia-diem` | Tìm kiếm/lấy danh sách địa điểm | Public |
-| 16 | GET | `/api/v1/dia-diem/{id}` | Xem chi tiết địa điểm | Public |
-| 17 | GET | `/api/v1/co-so-am-thuc` | Lấy danh sách cơ sở ẩm thực | Public |
-| 18 | GET | `/api/v1/co-so-am-thuc/{id}` | Xem chi tiết cơ sở ẩm thực | Public |
+1. POST /auth/register
+2. POST /auth/login
+3. POST /auth/logout
+4. GET /vung-mien
+5. GET /vung-mien/{id}
+6. GET /tinh-thanh
+7. GET /tinh-thanh/{id}
+8. GET /mon-an
+9. GET /mon-an/{id}
+10. GET /mon-an/{id}/nguyen-lieu
+11. GET /mon-an/{id}/mua-vu
+12. GET /mon-an/{id}/dip-le
+13. GET /mon-an/{id}/di-ung
+14. GET /mon-an/{id}/cau-chuyen
+15. GET /dia-diem
+16. GET /dia-diem/{id}
+17. GET /co-so-am-thuc
+18. GET /co-so-am-thuc/{id}
+19. GET /mon-an/{id}/danh-gia
+20. POST /mon-an/{id}/danh-gia
+21. GET /co-so-am-thuc/{id}/danh-gia
+22. POST /co-so-am-thuc/{id}/danh-gia
+23. GET /bo-suu-tap
+24. POST /bo-suu-tap
+25. GET /bo-suu-tap/{id}
+26. POST /bo-suu-tap/{id}/mon-an
+27. DELETE /bo-suu-tap/{id}/mon-an/{mon_an_id}
+28. GET /hanh-trinh-am-thuc
+29. GET /hanh-trinh-am-thuc/{id}
+30. POST /dong-gop
+31. GET /dong-gop/me
+32. GET /admin/dong-gop
+33. PATCH /admin/dong-gop/{id}
 
-### 6.5. Đánh giá
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 19 | GET | `/api/v1/mon-an/{id}/danh-gia` | Xem đánh giá món ăn | Public |
-| 20 | POST | `/api/v1/mon-an/{id}/danh-gia` | Gửi đánh giá món ăn | User |
-| 21 | GET | `/api/v1/co-so-am-thuc/{id}/danh-gia` | Xem đánh giá cơ sở | Public |
-| 22 | POST | `/api/v1/co-so-am-thuc/{id}/danh-gia` | Gửi đánh giá cơ sở | User |
+## 7.1. Xác thực
 
-### 6.6. Bộ sưu tập
+### 7.1.1 POST /auth/register
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 23 | GET | `/api/v1/bo-suu-tap` | Lấy bộ sưu tập của người dùng | User |
-| 24 | POST | `/api/v1/bo-suu-tap` | Tạo bộ sưu tập | User |
-| 25 | GET | `/api/v1/bo-suu-tap/{id}` | Xem chi tiết bộ sưu tập | User |
-| 26 | POST | `/api/v1/bo-suu-tap/{id}/mon-an` | Thêm món ăn vào bộ sưu tập | User |
-| 27 | DELETE | `/api/v1/bo-suu-tap/{id}/mon-an/{mon_an_id}` | Xóa món ăn khỏi bộ sưu tập | User |
+Auth: Public
 
-### 6.7. Hành trình ẩm thực
+Request:
+- ho_ten
+- email
+- mat_khau
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 28 | GET | `/api/v1/hanh-trinh-am-thuc` | Lấy danh sách hành trình | Public |
-| 29 | GET | `/api/v1/hanh-trinh-am-thuc/{id}` | Xem chi tiết hành trình | Public |
+Response 201:
+- nguoi_dung_id
+- ho_ten
+- email
+- vai_tro
 
-### 6.8. Đóng góp dữ liệu
+Vai trò mặc định: khach_du_lich.
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 30 | POST | `/api/v1/dong-gop` | Gửi đóng góp dữ liệu | User |
-| 31 | GET | `/api/v1/dong-gop/me` | Xem các đóng góp của mình | User |
+Status: 201, 422, 500.
 
-### 6.9. Quản trị
 
-| STT | Method | Endpoint | Mục đích | Quyền |
-|---|---|---|---|---|
-| 32 | GET | `/api/v1/admin/dong-gop` | Xem danh sách đóng góp cần quản lý | Admin |
-| 33 | PATCH | `/api/v1/admin/dong-gop/{id}` | Cập nhật trạng thái đóng góp | Admin |
-## 7. Chi tiết API
+### 7.1.2 POST /auth/login
 
-### 7.1. Authentication
+Auth: Public
 
-#### 7.1.1. Đăng ký tài khoản
+Request:
+- email
+- mat_khau
 
-**Endpoint**
+Response 200:
+- token
+- thông tin người dùng
 
-```text
-POST /api/v1/auth/register
-### 7.2. Vùng miền và tỉnh/thành
+Status: 200, 401, 422, 500.
 
-#### 7.2.1. Lấy danh sách vùng miền
 
-**Endpoint**
+### 7.1.3 POST /auth/logout
 
-```text
-GET /api/v1/vung-mien
-### 7.3. Món ăn
+Auth: User
 
-#### 7.3.1. Tìm kiếm, lọc và phân trang món ăn
+Response: HTTP 204.
 
-**Endpoint**
+Status: 204, 401, 500.
 
-```text
 
-GET /api/v1/mon-an
-### 7.3.2. Xem chi tiết món ăn
+## 7.2. Vùng miền và tỉnh thành
 
-**Endpoint**
+### 7.2.1 GET /vung-mien
 
-```text
-GET /api/v1/mon-an/{id}
-### 7.3.3. Lấy nguyên liệu của món ăn
+Auth: Public
 
-**Endpoint**
+Query:
+- page
+- per_page
 
-```text
-GET /api/v1/mon-an/{id}/nguyen-lieu
-#### 7.3.3. Lấy nguyên liệu của món ăn
+Response:
+- vung_mien_id
+- ten_vung
+- mo_ta
 
-**Endpoint**
+Status: 200, 500.
 
-GET /api/v1/mon-an/{id}/nguyen-lieu
 
-**Mục đích**
+### 7.2.2 GET /vung-mien/{id}
 
-Lấy danh sách nguyên liệu và thông tin số lượng, đơn vị của một món ăn.
+Auth: Public
 
-**Quyền truy cập**
+Path parameter:
+- id: vung_mien_id
 
-Public.
+Response:
+- vung_mien_id
+- ten_vung
+- mo_ta
 
-**Path parameters**
+Status: 200, 404, 500.
 
-| Tham số | Kiểu | Bắt buộc | Mô tả |
-|---|---|---|---|
-| `id` | integer | Có | ID của món ăn |
 
-**Response 200**
+### 7.2.3 GET /tinh-thanh
 
-```json
-{
-  "data": [
-    {
-      "nguyen_lieu_id": 1,
-      "ten_nguyen_lieu": "Bánh phở",
-      "mo_ta": "...",
-      "so_luong": 200,
-      "don_vi": "gram"
-    }
-  ]
-}
-### 7.4. Địa điểm và cơ sở ẩm thực
+Auth: Public
 
-#### 7.4.1. Lấy danh sách địa điểm
+Query:
+- vung_mien_id
+- page
+- per_page
 
-**Endpoint**
+Response:
+- tinh_thanh_id
+- ten_tinh
+- vung_mien_id
 
-GET /api/v1/dia-diem
+Status: 200, 500.
 
-**Mục đích**
 
-Lấy danh sách địa điểm phục vụ hiển thị trên bản đồ và hỗ trợ tìm kiếm địa điểm.
+### 7.2.4 GET /tinh-thanh/{id}
 
-**Quyền truy cập**
+Auth: Public
 
-Public.
+Path parameter:
+- id: tinh_thanh_id
 
-**Query parameters**
+Response:
+- tinh_thanh_id
+- ten_tinh
+- vung_mien_id
 
-| Tham số | Kiểu | Bắt buộc | Mô tả |
-|---|---|---|---|
-| `tinh_thanh_id` | integer | Không | Lọc theo tỉnh/thành |
-| `keyword` | string | Không | Tìm theo tên địa điểm hoặc địa chỉ |
-| `page` | integer | Không | Số trang, mặc định 1 |
-| `per_page` | integer | Không | Số bản ghi/trang |
+Status: 200, 404, 500.
 
-**Response 200**
 
-```json
-{
-  "data": [
-    {
-      "dia_diem_id": 1,
-      "ten_dia_diem": "Phố cổ Hà Nội",
-      "dia_chi": "Hà Nội",
-      "kinh_do": 105.8542,
-      "vi_do": 21.0285,
-      "tinh_thanh": {
-        "tinh_thanh_id": 1,
-        "ten_tinh": "Hà Nội"
-      }
-    }
-  ],
-  "meta": {
-    "current_page": 1,
-    "per_page": 10,
-    "total": 20,
-    "last_page": 2
-  }
-}
-### 7.5. Đánh giá
+## 7.3. Món ăn
 
-#### 7.5.1. Lấy danh sách đánh giá của món ăn
+### 7.3.1 GET /mon-an
 
-**Endpoint**
+Auth: Public
 
-GET /api/v1/mon-an/{id}/danh-gia
+Query:
+- keyword
+- vung_mien_id
+- tinh_thanh_id
+- loai_mon
+- page
+- per_page
 
-**Mục đích**
+Response:
+- mon_an_id
+- ten_mon
+- mo_ta
+- gia_tham_khao
+- vung_mien_id
+- tinh_thanh_id
+- dia_diem_id
 
-Lấy danh sách đánh giá của người dùng đối với một món ăn.
+Status: 200, 500.
 
-**Quyền truy cập**
+Lưu ý: RQ-F-03 yêu cầu lọc loai_mon nhưng bảng mon_an hiện chưa có trường loai_mon. Cần V2 xác nhận/bổ sung schema.
 
-Public.
 
-**Path parameters**
+### 7.3.2 GET /mon-an/{id}
 
-| Tham số | Kiểu | Bắt buộc | Mô tả |
-|---|---|---|---|
-| `id` | integer | Có | ID món ăn |
+Auth: Public
 
-**Query parameters**
+Response:
+- mon_an_id
+- ten_mon
+- mo_ta
+- gia_tham_khao
+- vung_mien_id
+- tinh_thanh_id
+- dia_diem_id
 
-| Tham số | Kiểu | Bắt buộc | Mô tả |
-|---|---|---|---|
-| `page` | integer | Không | Số trang, mặc định 1 |
-| `per_page` | integer | Không | Số bản ghi/trang |
+Status: 200, 404, 500.
 
-**Response 200**
+Lưu ý: RQ-F-05 yêu cầu hình ảnh món ăn nhưng bảng mon_an hiện chưa có hinh_anh. Cần V2 xác nhận/bổ sung schema.
 
-```json
-{
-  "data": [
-    {
-      "danh_gia_id": 1,
-      "nguoi_dung": {
-        "nguoi_dung_id": 1,
-        "ho_ten": "Nguyễn Văn A"
-      },
-      "so_sao": 5,
-      "noi_dung": "Món ăn ngon.",
-      "ngay_danh_gia": "2026-09-22"
-    }
-  ],
-  "meta": {
-    "current_page": 1,
-    "per_page": 10,
-    "total": 5,
-    "last_page": 1
-  }
-}
+
+### 7.3.3 GET /mon-an/{id}/nguyen-lieu
+
+Auth: Public
+
+Response:
+- nguyen_lieu_id
+- ten_nguyen_lieu
+- mo_ta
+- so_luong
+- don_vi
+
+Status: 200, 404, 500.
+
+
+### 7.3.4 GET /mon-an/{id}/mua-vu
+
+Auth: Public
+
+Response:
+- mua_vu_id
+- ten_mua
+- mo_ta
+- ghi_chu
+
+Status: 200, 404, 500.
+
+
+### 7.3.5 GET /mon-an/{id}/dip-le
+
+Auth: Public
+
+Response:
+- dip_le_id
+- ten_dip_le
+- thoi_gian
+- mo_ta
+- ghi_chu
+
+Status: 200, 404, 500.
+
+
+### 7.3.6 GET /mon-an/{id}/di-ung
+
+Auth: Public
+
+Response:
+- di_ung_id
+- ten_chat_di_ung
+- mo_ta
+- ghi_chu
+
+Status: 200, 404, 500.
+
+
+### 7.3.7 GET /mon-an/{id}/cau-chuyen
+
+Auth: Public
+
+Response:
+- cau_chuyen_id
+- tieu_de
+- noi_dung
+- nguon_goc
+- gia_tri_van_hoa
+
+Status: 200, 404, 500.
+
+
+## 7.4. Địa điểm và cơ sở ẩm thực
+
+### 7.4.1 GET /dia-diem
+
+Auth: Public
+
+Query:
+- tinh_thanh_id
+- page
+- per_page
+
+Response:
+- dia_diem_id
+- ten_dia_diem
+- dia_chi
+- kinh_do
+- vi_do
+- tinh_thanh_id
+
+Status: 200, 500.
+
+
+### 7.4.2 GET /dia-diem/{id}
+
+Auth: Public
+
+Response:
+- dia_diem_id
+- ten_dia_diem
+- dia_chi
+- kinh_do
+- vi_do
+- tinh_thanh_id
+
+Status: 200, 404, 500.
+
+
+### 7.4.3 GET /co-so-am-thuc
+
+Auth: Public
+
+Query:
+- dia_diem_id
+- page
+- per_page
+
+Response:
+- co_so_id
+- ten_co_so
+- loai_hinh
+- dia_chi
+- so_dien_thoai
+- dia_diem_id
+- mo_ta
+- hinh_anh
+
+Status: 200, 500.
+
+
+### 7.4.4 GET /co-so-am-thuc/{id}
+
+Auth: Public
+
+Response:
+- co_so_id
+- ten_co_so
+- loai_hinh
+- dia_chi
+- so_dien_thoai
+- dia_diem_id
+- mo_ta
+- hinh_anh
+
+Status: 200, 404, 500.
+
+
+## 7.5. Đánh giá
+
+### 7.5.1 GET /mon-an/{id}/danh-gia
+
+Auth: Public
+
+Query:
+- page
+- per_page
+
+Response:
+- danh_gia_id
+- nguoi_dung_id
+- mon_an_id
+- so_sao
+- noi_dung
+- ngay_danh_gia
+
+Status: 200, 404, 500.
+
+
+### 7.5.2 POST /mon-an/{id}/danh-gia
+
+Auth: User
+
+Request:
+- so_sao
+- noi_dung
+
+nguoi_dung_id lấy từ thông tin xác thực, không nhận từ request body.
+
+Status: 201, 401, 404, 422, 500.
+
+
+### 7.5.3 GET /co-so-am-thuc/{id}/danh-gia
+
+Auth: Public
+
+Query:
+- page
+- per_page
+
+Response:
+- danh_gia_id
+- nguoi_dung_id
+- co_so_id
+- so_sao
+- noi_dung
+- ngay_danh_gia
+
+Status: 200, 404, 500.
+
+
+### 7.5.4 POST /co-so-am-thuc/{id}/danh-gia
+
+Auth: User
+
+Request:
+- so_sao
+- noi_dung
+
+nguoi_dung_id lấy từ thông tin xác thực.
+
+Status: 201, 401, 404, 422, 500.
+
+
+## 7.6. Bộ sưu tập
+
+### 7.6.1 GET /bo-suu-tap
+
+Auth: User
+
+Query:
+- page
+- per_page
+
+Response:
+- bo_suu_tap_id
+- nguoi_dung_id
+- ten_bo_suu_tap
+- mo_ta
+- ngay_tao
+
+Status: 200, 401, 500.
+
+
+### 7.6.2 POST /bo-suu-tap
+
+Auth: User
+
+Request:
+- ten_bo_suu_tap
+- mo_ta
+
+nguoi_dung_id lấy từ thông tin xác thực.
+
+Status: 201, 401, 422, 500.
+
+
+### 7.6.3 GET /bo-suu-tap/{id}
+
+Auth: User
+
+Chỉ chủ sở hữu được truy cập bộ sưu tập.
+
+Response:
+- thông tin bộ sưu tập
+- danh sách món ăn
+
+Status: 200, 401, 403, 404, 500.
+
+
+### 7.6.4 POST /bo-suu-tap/{id}/mon-an
+
+Auth: User
+
+Request:
+- mon_an_id
+
+Status: 201, 401, 403, 404, 422, 500.
+
+
+### 7.6.5 DELETE /bo-suu-tap/{id}/mon-an/{mon_an_id}
+
+Auth: User
+
+Chỉ chủ sở hữu được xóa món khỏi bộ sưu tập.
+
+Status: 204, 401, 403, 404, 500.
+
+
+## 7.7. Hành trình ẩm thực
+
+### 7.7.1 GET /hanh-trinh-am-thuc
+
+Auth: Public
+
+Query:
+- page
+- per_page
+
+Response:
+- hanh_trinh_id
+- ten_hanh_trinh
+- mo_ta
+- thoi_luong
+
+Status: 200, 500.
+
+
+### 7.7.2 GET /hanh-trinh-am-thuc/{id}
+
+Auth: Public
+
+Response:
+- hanh_trinh_id
+- ten_hanh_trinh
+- mo_ta
+- thoi_luong
+- danh sách món ăn
+
+Các món ăn được sắp xếp theo hanh_trinh_mon_an.thu_tu.
+
+Status: 200, 404, 500.
+
+
+## 7.8. Đóng góp dữ liệu
+
+### 7.8.1 POST /dong-gop
+
+Auth: User
+
+Request:
+- noi_dung
+
+nguoi_dung_id lấy từ thông tin xác thực.
+
+trang_thai khởi tạo là cho_duyet.
+
+Status: 201, 401, 422, 500.
+
+
+### 7.8.2 GET /dong-gop/me
+
+Auth: User
+
+Query:
+- page
+- per_page
+
+Response:
+- dong_gop_id
+- nguoi_dung_id
+- noi_dung
+- trang_thai
+- ngay_dong_gop
+
+Status: 200, 401, 500.
+
+
+## 7.9. Quản trị đóng góp
+
+### 7.9.1 GET /admin/dong-gop
+
+Auth: quan_tri_vien
+
+Query:
+- trang_thai
+- page
+- per_page
+
+trang_thai:
+- cho_duyet
+- da_duyet
+- tu_choi
+
+Response:
+- dong_gop_id
+- nguoi_dung_id
+- noi_dung
+- trang_thai
+- ngay_dong_gop
+
+Status: 200, 401, 403, 500.
+
+
+### 7.9.2 PATCH /admin/dong-gop/{id}
+
+Auth: quan_tri_vien
+
+Request:
+- trang_thai
+
+Giá trị hợp lệ:
+- cho_duyet
+- da_duyet
+- tu_choi
+
+Status: 200, 401, 403, 404, 422, 500.
+
+
+## 8. Quy tắc kiểm thử API
+
+Mỗi endpoint phải được đối chiếu với trường dữ liệu thực tế trong schema 3.0.
+
+Không được khai báo API field không tồn tại trong DB nếu chưa có xác nhận thay đổi schema.
+
+API danh sách phải hỗ trợ phân trang phía máy chủ.
+
+UI phải xác định được endpoint tương ứng cho từng trang danh sách.
+
+
+## 9. Vấn đề cần V2 xác nhận
+
+### 9.1. Trường loai_mon
+
+RQ-F-03 yêu cầu lọc theo loại món/ẩm thực.
+
+Tuy nhiên bảng mon_an hiện chưa có trường loai_mon.
+
+Cần V2 xác nhận hoặc bổ sung schema trước khi triển khai bộ lọc này.
+
+
+### 9.2. Trường hinh_anh của món ăn
+
+RQ-F-05 yêu cầu hiển thị hình ảnh món ăn.
+
+Tuy nhiên bảng mon_an hiện chưa có trường hinh_anh.
+
+Cần V2 xác nhận hoặc bổ sung schema.
+
+
+## 10. Phạm vi chưa đưa vào API v0.1
+
+Persona/User Journey có đề cập booking, payment, e-voucher và check-in.
+
+Tuy nhiên schema hiện tại chưa có bảng dữ liệu tương ứng.
+
+Do đó các chức năng này chưa được thiết kế endpoint trong API Contract v0.1.
+
