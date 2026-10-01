@@ -7,11 +7,75 @@ use Illuminate\Http\Request;
 
 class MonAnController extends Controller
 {
-    // Xem danh sách món ăn
-    public function index()
+    // Xem danh sách món ăn: tìm kiếm, lọc, sắp xếp, phân trang
+    public function index(Request $request)
     {
+        $query = MonAn::query();
+
+        // Tìm kiếm theo tên món
+      if ($request->filled('q')) {
+        $query->whereRaw(
+        'ten_mon COLLATE utf8mb4_0900_as_ci LIKE ?',
+        ['%' . $request->q . '%']
+       );
+       }
+        // Lọc theo vùng miền
+        if ($request->filled('vung_mien_id')) {
+            $query->where('vung_mien_id', $request->vung_mien_id);
+        }
+
+        // Lọc theo tỉnh/thành
+        if ($request->filled('tinh_thanh_id')) {
+            $query->where('tinh_thanh_id', $request->tinh_thanh_id);
+        }
+
+        // Lọc theo địa điểm
+        if ($request->filled('dia_diem_id')) {
+            $query->where('dia_diem_id', $request->dia_diem_id);
+        }
+
+        // Lọc theo giá
+        if ($request->filled('gia_min')) {
+            $query->where('gia_tham_khao', '>=', $request->gia_min);
+        }
+
+        if ($request->filled('gia_max')) {
+            $query->where('gia_tham_khao', '<=', $request->gia_max);
+        }
+
+        // Sắp xếp
+        $sortBy = $request->input('sort_by', 'mon_an_id');
+        $sortOrder = $request->input('sort_order', 'asc');
+
+        $allowedSorts = [
+            'mon_an_id',
+            'ten_mon',
+            'gia_tham_khao',
+        ];
+
+        if (!in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'mon_an_id';
+        }
+
+        if (!in_array($sortOrder, ['asc', 'desc'])) {
+            $sortOrder = 'asc';
+        }
+
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Phân trang
+        $perPage = (int) $request->input('per_page', 10);
+
+        if ($perPage < 1) {
+            $perPage = 10;
+        }
+
+        if ($perPage > 100) {
+            $perPage = 100;
+        }
+
         return response()->json([
-            'data' => MonAn::orderBy('mon_an_id')->paginate(10),
+            'data' => $query->paginate($perPage)->withQueryString(),
         ]);
     }
 
