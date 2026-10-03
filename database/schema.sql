@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 CREATE DATABASE IF NOT EXISTS am_thuc_vung_mien
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
@@ -219,7 +218,7 @@ ON dia_diem(tinh_thanh_id);
 
 CREATE INDEX idx_co_so_dia_diem
 ON co_so_am_thuc(dia_diem_id);
-=======
+
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: am_thuc_vung_mien
@@ -639,4 +638,3 @@ CREATE TABLE `vung_mien` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-09-17 21:44:12
->>>>>>> Stashed changes

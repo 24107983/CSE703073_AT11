@@ -13,3 +13,5 @@ Route::get('/mon-an/{id}', [MonAnController::class, 'show']);
 Route::post('/mon-an', [MonAnController::class, 'store'])->middleware('admin');
 Route::put('/mon-an/{id}', [MonAnController::class, 'update'])->middleware('admin');
 Route::delete('/mon-an/{id}', [MonAnController::class, 'destroy'])->middleware('admin');
+
+Route::get('v1/admin/mon-an', function () { return response()->json([ 'message' => 'Khong co quyen truy cap trang quan tri.' ], 403); });
