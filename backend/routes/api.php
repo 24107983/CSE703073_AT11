@@ -15,6 +15,7 @@ Route::put('/mon-an/{id}', [MonAnController::class, 'update'])->middleware('admi
 Route::delete('/mon-an/{id}', [MonAnController::class, 'destroy'])->middleware('admin');
 Route::post('/dat-cho/hold', [App\Http\Controllers\DatChoController::class, 'hold']);
 Route::post('/dat-cho/cancel', [App\Http\Controllers\DatChoController::class, 'cancel']);
+Route::post('/dat-cho/refund', [App\Http\Controllers\DatChoController::class, 'refund']);
 use App\Http\Controllers\HanhTrinhAmThucController;
 
 Route::get('/hanh-trinh-am-thuc', [HanhTrinhAmThucController::class, 'index']);
