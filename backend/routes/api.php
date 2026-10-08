@@ -25,3 +25,4 @@ use App\Http\Controllers\LichKhaDungHanhTrinhController;
 Route::get('/hanh-trinh-am-thuc/{hanhTrinhId}/lich-kha-dung', [LichKhaDungHanhTrinhController::class, 'index']);
 Route::post('/thanh-toan/test', [App\Http\Controllers\ThanhToanController::class, 'xuLy']);
 Route::get('/python/recommend/{productId}', [App\Http\Controllers\PythonRecommendationController::class, 'recommend']);
+Route::get('/admin/dashboard/stats', [App\Http\Controllers\AdminDashboardController::class, 'stats']);
