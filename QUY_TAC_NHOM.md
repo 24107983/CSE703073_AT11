@@ -16,7 +16,7 @@
 
 
 
-\- V1 – Nguyễn Thị Linh: Trưởng nhóm, quản trị cấu hình và Git
+\- V1/V6 – Nguyễn Thị Linh: Trưởng nhóm, quản trị cấu hình Git; triển khai và tài liệu
 
 \- V2 – Nguyễn Trần Diệu Linh: Dữ liệu
 
@@ -24,8 +24,7 @@
 
 \- V4 – Đào Thị Ngọc Linh: Frontend
 
-\- V5/V6 – Nguyễn Huy Hoàng: Kiểm thử, triển khai và tài liệu
-
+\- V5 – Nguyễn Huy Hoàng: Kiểm thử, triển khai.
 
 
 \## 3. Quy tắc Git
