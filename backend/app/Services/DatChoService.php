@@ -74,6 +74,12 @@ class DatChoService
                 throw new RuntimeException('Không tìm thấy đặt chỗ.');
             }
 
+            if ((int) $datCho->nguoi_dung_id !== (int) Auth::id()) {
+                throw new RuntimeException(
+                    'Bạn không có quyền thao tác trên đặt chỗ này.'
+                );
+            }
+
             if ($datCho->trang_thai !== 'confirmed') {
                 throw new RuntimeException(
                     'Chỉ có thể hủy đặt chỗ đã xác nhận.'
@@ -138,6 +144,12 @@ class DatChoService
             if (!$datCho) {
                 throw new RuntimeException(
                     'Không tìm thấy đặt chỗ.'
+                );
+            }
+
+            if ((int) $datCho->nguoi_dung_id !== (int) Auth::id()) {
+                throw new RuntimeException(
+                    'Bạn không có quyền thao tác trên đặt chỗ này.'
                 );
             }
 
