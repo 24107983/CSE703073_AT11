@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DiaDiemController;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -26,3 +27,5 @@ Route::get('/hanh-trinh-am-thuc/{hanhTrinhId}/lich-kha-dung', [LichKhaDungHanhTr
 Route::post('/thanh-toan/test', [App\Http\Controllers\ThanhToanController::class, 'xuLy']);
 Route::get('/python/recommend/{productId}', [App\Http\Controllers\PythonRecommendationController::class, 'recommend']);
 Route::get('/admin/dashboard/stats', [App\Http\Controllers\AdminDashboardController::class, 'stats']);
+Route::get('/dia-diem', [DiaDiemController::class, 'index']);
+Route::get('/dia-diem/{id}', [DiaDiemController::class, 'show']);
