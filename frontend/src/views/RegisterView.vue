@@ -26,7 +26,7 @@ const handleRegister = async () => {
 
   try {
     const response = await fetch(
-      'http://10.240.223.32:8000/api/auth/register',
+      '/api/auth/register',
       {
         method: 'POST',
         headers: {

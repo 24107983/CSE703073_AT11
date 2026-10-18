@@ -17,7 +17,7 @@ const fetchDish = async () => {
 
   try {
     const response = await fetch(
-      `http://10.139.87.32:8000/api/mon-an/${route.params.id}`,
+      `/api/mon-an/${route.params.id}`,
       {
         headers: {
           Accept: 'application/json'
