@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 const API_BASE_URL = '/api'
 
 const route = useRoute()
+const router = useRouter()
 
 const journey = ref(null)
 const selectedSchedule = ref(null)
@@ -146,22 +147,34 @@ const handleHold = async () => {
       )
     }
 
-    successMessage.value =
-      result.message || 'Giữ chỗ thành công.'
+    // Lưu thông tin đơn vừa được backend giữ chỗ để PaymentView đọc được.
+    const booking = result.data
 
-    // Cập nhật số chỗ trên giao diện sau khi giữ chỗ
-    if (selectedSchedule.value.so_cho_con_lai !== undefined) {
-      selectedSchedule.value.so_cho_con_lai =
-        Math.max(
-          0,
-          Number(selectedSchedule.value.so_cho_con_lai) -
-            soKhach.value
-        )
-    } else {
-      selectedSchedule.value.so_cho_held =
-        Number(selectedSchedule.value.so_cho_held || 0) +
-        soKhach.value
+    if (!booking || !booking.dat_cho_id) {
+      throw new Error('Máy chủ không trả về mã đặt chỗ hợp lệ.')
     }
+
+    const paymentBooking = {
+      ...booking,
+      ten_hanh_trinh: journey.value?.ten_hanh_trinh ?? '',
+      hanh_trinh_id: journeyId.value,
+      ngay_phuc_vu: selectedSchedule.value.ngay_phuc_vu ?? null,
+      gia_tham_khao: selectedSchedule.value.gia_tham_khao ?? booking.don_gia
+    }
+
+    const storageKey = `at11_payment_${booking.dat_cho_id}`
+    sessionStorage.setItem(storageKey, JSON.stringify(paymentBooking))
+
+    // Chuyển sang trang thanh toán; PaymentView sẽ đọc đơn theo dat_cho_id.
+    await router.push({
+      name: 'thanh-toan',
+      params: {
+        datChoId: String(booking.dat_cho_id)
+      },
+      query: {
+        journeyId: String(journeyId.value)
+      }
+    })
 
   } catch (error) {
     console.error(error)
@@ -462,18 +475,18 @@ onMounted(() => {
             </div>
 
             <!-- NOTE -->
-<div class="notice-box">
-  <span class="notice-icon">ⓘ</span>
+            <div class="notice-box">
+              <span class="notice-icon">ⓘ</span>
 
-  <div>
-    <strong>Lưu ý về giữ chỗ</strong>
+              <div>
+                <strong>Lưu ý về giữ chỗ</strong>
 
-    <p>
-      Yêu cầu giữ chỗ sẽ được gửi đến máy chủ để kiểm tra
-      và xử lý theo dữ liệu lịch phục vụ hiện tại.
-    </p>
-  </div>
-</div>
+                <p>
+                  Yêu cầu giữ chỗ sẽ được gửi đến máy chủ để kiểm tra
+                  và xử lý theo dữ liệu lịch phục vụ hiện tại.
+                </p>
+              </div>
+            </div>
 
           </section>
 
@@ -549,26 +562,26 @@ onMounted(() => {
 
               </div>
 
-<button
-  type="button"
-  class="hold-button"
-  :disabled="
-    !selectedSchedule ||
-    availableSeats < 1 ||
-    submitting
-  "
-  @click="handleHold"
->
-  <span v-if="submitting">
-    Đang xử lý...
-  </span>
+              <button
+                type="button"
+                class="hold-button"
+                :disabled="
+                  !selectedSchedule ||
+                  availableSeats < 1 ||
+                  submitting
+                "
+                @click="handleHold"
+              >
+                <span v-if="submitting">
+                  Đang xử lý...
+                </span>
 
-  <span v-else>
-    Giữ chỗ
-  </span>
+                <span v-else>
+                  Giữ chỗ
+                </span>
 
-  <span v-if="!submitting">→</span>
-</button>
+                <span v-if="!submitting">→</span>
+              </button>
 
               <!-- ERROR -->
               <p
@@ -597,7 +610,6 @@ onMounted(() => {
     </div>
   </main>
 </template>
-
 <style scoped>
 .page {
   padding: var(--space-8) 0 var(--space-16);
