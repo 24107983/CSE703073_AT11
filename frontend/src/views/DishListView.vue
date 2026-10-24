@@ -18,7 +18,7 @@ const fetchDishes = async () => {
 
   try {
     const response = await fetch(
-      `http://10.240.223.32:8000/api/mon-an?page=${currentPage.value}`,
+      `/api/mon-an?page=${currentPage.value}`,
       {
         headers: {
           Accept: 'application/json'

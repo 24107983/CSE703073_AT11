@@ -10,7 +10,11 @@ class MonAnController extends Controller
     // Xem danh sách món ăn: tìm kiếm, lọc, sắp xếp, phân trang
     public function index(Request $request)
     {
-        $query = MonAn::query();
+        $query = MonAn::with([
+    'vungMien',
+    'tinhThanh',
+    'diaDiem',
+    ]);
 
         // Tìm kiếm theo tên món
       if ($request->filled('q')) {
@@ -79,10 +83,20 @@ class MonAnController extends Controller
         ]);
     }
 
-    // Xem một món ăn
+
+    // Xem chi tiết một món ăn
     public function show($id)
     {
-        $monAn = MonAn::find($id);
+        $monAn = MonAn::with([
+            'vungMien',
+            'tinhThanh',
+            'diaDiem',
+            'nguyenLieu',
+            'muaVu',
+            'diUngThucPham',
+            'dipLe',
+            'cauChuyenVanHoa',
+        ])->find($id);
 
         if (!$monAn) {
             return response()->json([

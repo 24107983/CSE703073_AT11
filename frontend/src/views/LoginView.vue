@@ -19,8 +19,7 @@ const handleLogin = async () => {
   user.value = null
 
   try {
-    const response = await fetch(
-      'http://10.240.223.32:8000/api/auth/login',
+    const response = await fetch('/api/auth/login',
       {
         method: 'POST',
         headers: {
@@ -70,7 +69,7 @@ const handleLogout = async () => {
 
   try {
     const response = await fetch(
-      'http://10.240.223.32:8000/api/auth/logout',
+      '/api/auth/logout',
       {
         method: 'POST',
         headers: {

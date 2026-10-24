@@ -10,6 +10,7 @@ use App\Http\Controllers\DatChoController;
 use App\Http\Controllers\ThanhToanController;
 use App\Http\Controllers\PythonRecommendationController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\DiaDiemController;
 
 // AUTH
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -49,4 +50,10 @@ Route::get('/hanh-trinh-am-thuc/{hanhTrinhId}/lich-kha-dung', [LichKhaDungHanhTr
 // THANH TOAN, GOI Y, THONG KE
 Route::post('/thanh-toan/test', [ThanhToanController::class, 'xuLy']);
 Route::get('/python/recommend/{productId}', [PythonRecommendationController::class, 'recommend']);
-Route::get('/admin/dashboard/stats', [AdminDashboardController::class, 'stats']);
+
+Route::get('/admin/dashboard/stats', [AdminDashboardController::class, 'stats'])
+    ->middleware('admin');
+
+// DIA DIEM V3
+Route::get('/dia-diem', [DiaDiemController::class, 'index']);
+Route::get('/dia-diem/{id}', [DiaDiemController::class, 'show']);
