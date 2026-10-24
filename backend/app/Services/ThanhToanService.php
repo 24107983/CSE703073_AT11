@@ -7,6 +7,7 @@ use App\Models\DatChoLichSu;
 use App\Models\LichKhaDungHanhTrinh;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Illuminate\Support\Facades\Auth;
 
 class ThanhToanService
 {
@@ -19,6 +20,9 @@ class ThanhToanService
 
             if (!$datCho) {
                 throw new RuntimeException('Không tìm thấy đặt chỗ.');
+            }
+            if ((int) $datCho->nguoi_dung_id !== (int) Auth::id()) {
+                throw new RuntimeException('Bạn không có quyền thanh toán đặt chỗ này.');
             }
 
             if ($datCho->trang_thai !== 'pending_payment') {
