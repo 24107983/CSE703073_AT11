@@ -7,6 +7,9 @@ const route = useRoute()
 const dish = ref(null)
 const loading = ref(false)
 const errorMessage = ref('')
+const recommendations = ref([])
+const recommendationLoading = ref(false)
+const recommendationError = ref('')
 
 const fetchDish = async () => {
   loading.value = true
@@ -14,7 +17,7 @@ const fetchDish = async () => {
 
   try {
     const response = await fetch(
-      `http://10.240.223.32:8000/api/mon-an/${route.params.id}`,
+      `/api/mon-an/${route.params.id}`,
       {
         headers: {
           Accept: 'application/json'
@@ -36,9 +39,45 @@ const fetchDish = async () => {
     loading.value = false
   }
 }
+const fetchRecommendations = async () => {
+  const productId = route.params.id
 
+  if (!productId) return
+
+  recommendationLoading.value = true
+  recommendationError.value = ''
+  recommendations.value = []
+
+  try {
+    const response = await fetch(
+      `/api/python/recommend/${encodeURIComponent(productId)}?k=5`,
+      {
+        headers: {
+          Accept: 'application/json'
+        }
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    recommendations.value = Array.isArray(result.recommendations)
+      ? result.recommendations
+      : []
+  } catch (error) {
+    console.error('Lỗi tải gợi ý món ăn:', error)
+    recommendationError.value =
+      'Chưa thể tải gợi ý món ăn. M vui lòng thử lại sau.'
+  } finally {
+    recommendationLoading.value = false
+  }
+}
 onMounted(() => {
   fetchDish()
+  fetchRecommendations()
 })
 
 function formatPrice(price) {
@@ -207,7 +246,49 @@ function formatPrice(price) {
             Đánh giá của người dùng sẽ được hiển thị tại đây.
           </p>
         </section>
+<section class="detail-section recommendation-section">
+  <h2>Món ăn có thể bạn sẽ thích</h2>
 
+  <p class="placeholder-text recommendation-note">
+    Các gợi ý được cung cấp bởi hệ thống đề xuất món ăn.
+  </p>
+
+  <p v-if="recommendationLoading" class="placeholder-text">
+    Đang tải gợi ý món ăn...
+  </p>
+
+  <p v-else-if="recommendationError" class="recommendation-error">
+    {{ recommendationError }}
+  </p>
+
+  <p
+    v-else-if="recommendations.length === 0"
+    class="placeholder-text"
+  >
+    Hiện chưa có gợi ý cho món ăn này.
+  </p>
+
+  <div v-else class="recommendation-grid">
+    <article
+      v-for="item in recommendations"
+      :key="item.id"
+      class="recommendation-card"
+    >
+      <div class="recommendation-icon" aria-hidden="true">
+        🍜
+      </div>
+
+      <div class="recommendation-content">
+        <h3>{{ item.name }}</h3>
+
+        <p class="recommendation-score">
+          Điểm gợi ý:
+          <strong>{{ Number(item.score).toFixed(2) }}</strong>
+        </p>
+      </div>
+    </article>
+  </div>
+</section>
       </template>
 
     </div>
@@ -451,6 +532,80 @@ function formatPrice(price) {
   }
 
   .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* =========================
+   RECOMMENDATIONS
+   ========================= */
+
+.recommendation-note {
+  margin-bottom: var(--space-6);
+}
+
+.recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.recommendation-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.recommendation-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.recommendation-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-background, #f5f1eb);
+  font-size: 24px;
+}
+
+.recommendation-content {
+  min-width: 0;
+}
+
+.recommendation-content h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.recommendation-score {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.recommendation-score strong {
+  color: var(--color-primary);
+}
+
+.recommendation-error {
+  color: #b42318;
+  line-height: 1.6;
+}
+
+@media (max-width: 639px) {
+  .recommendation-grid {
     grid-template-columns: 1fr;
   }
 }

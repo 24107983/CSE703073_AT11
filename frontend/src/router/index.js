@@ -42,7 +42,21 @@ const router = createRouter({
       name: 'hanh-trinh',
       component: () => import('../views/JourneyView.vue')
     },
-
+    {
+      path: '/hanh-trinh/:id',
+      name: 'hanh-trinh-chi-tiet',
+      component: () => import('../views/JourneyDetailView.vue')
+    },
+    {
+  path: '/thanh-toan/:datChoId',
+  name: 'thanh-toan',
+  component: () => import('../views/PaymentView.vue')
+},
+    {
+      path: '/hanh-trinh/:id/dat-cho',
+      name: 'dat-cho',
+      component: () => import('../views/BookingView.vue')
+    },
     {
       path: '/dang-nhap',
       name: 'dang-nhap',
