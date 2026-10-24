@@ -18,7 +18,7 @@ class DatChoHoldIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // Ép test sử dụng SQLite in-memory, không ảnh hưởng database thật.
+        // Dùng SQLite in-memory để không ảnh hưởng database thật.
         config([
             'database.default' => 'sqlite',
             'database.connections.sqlite.database' => ':memory:',
@@ -113,6 +113,7 @@ class DatChoHoldIntegrationTest extends TestCase
 
     public function test_hold_persists_booking_capacity_and_history(): void
     {
+        // Tạo người dùng kiểm thử.
         $userId = DB::table('nguoi_dung')->insertGetId([
             'ho_ten' => 'Test User',
             'email' => 'test-hold@example.com',
@@ -120,12 +121,14 @@ class DatChoHoldIntegrationTest extends TestCase
             'vai_tro' => 'khach_du_lich',
         ]);
 
+        // Tạo hành trình ẩm thực.
         $journeyId = DB::table('hanh_trinh_am_thuc')->insertGetId([
             'ten_hanh_trinh' => 'Hành trình kiểm thử',
             'mo_ta' => null,
             'thoi_luong' => '1 ngày',
         ]);
 
+        // Tạo lịch khả dụng có sẵn 10 chỗ.
         $availabilityId = DB::table('lich_kha_dung_hanh_trinh')
             ->insertGetId([
                 'hanh_trinh_id' => $journeyId,
@@ -138,10 +141,17 @@ class DatChoHoldIntegrationTest extends TestCase
 
         Auth::login(NguoiDung::findOrFail($userId));
 
+        // Cố định thời gian để kiểm tra thời hạn giữ chỗ chính xác.
         $startedAt = now();
+        $this->travelTo($startedAt);
 
-        $booking = app(DatChoService::class)->hold($availabilityId, 3);
+        // Giữ chỗ cho 3 khách — chỉ gọi hold() một lần.
+        $booking = app(DatChoService::class)->hold(
+            $availabilityId,
+            3
+        );
 
+        // Kiểm tra bản ghi đặt chỗ.
         $this->assertDatabaseHas('dat_cho', [
             'dat_cho_id' => $booking->dat_cho_id,
             'nguoi_dung_id' => $userId,
@@ -152,11 +162,13 @@ class DatChoHoldIntegrationTest extends TestCase
             'trang_thai' => 'pending_payment',
         ]);
 
+        // 1 chỗ đã giữ trước đó + 3 chỗ mới = 4 chỗ đang giữ.
         $this->assertDatabaseHas('lich_kha_dung_hanh_trinh', [
             'lich_kha_dung_id' => $availabilityId,
             'so_cho_held' => 4,
         ]);
 
+        // Kiểm tra lịch sử chuyển trạng thái.
         $this->assertDatabaseHas('dat_cho_lich_su', [
             'dat_cho_id' => $booking->dat_cho_id,
             'tu_trang_thai' => null,
@@ -165,6 +177,7 @@ class DatChoHoldIntegrationTest extends TestCase
             'ly_do' => 'Giữ chỗ 15 phút',
         ]);
 
+        // Kiểm tra thời điểm hết hạn giữ chỗ.
         $this->assertNotNull($booking->het_han_giu);
 
         $this->assertEquals(
