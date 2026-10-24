@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DatCho;
+use App\Models\GiaoDichThanhToan;
 use App\Models\DatChoLichSu;
 use App\Models\LichKhaDungHanhTrinh;
 use App\Notifications\DatChoNotification;
@@ -154,10 +155,23 @@ class DatChoService
             }
 
             if ($datCho->trang_thai !== 'cancelled') {
-                throw new RuntimeException(
-                    'Chỉ có thể hoàn tiền cho đặt chỗ đã hủy.'
-                );
-            }
+    		throw new RuntimeException(
+        	'Chỉ có thể hoàn tiền cho đặt chỗ đã hủy.'
+     	   	);
+	   }
+
+		$daThanhToan = GiaoDichThanhToan::where(
+    		'dat_cho_id',
+   		 $datCho->dat_cho_id
+		)
+    		->where('ket_qua', 'success')
+    		->exists();
+
+	if (!$daThanhToan) {
+    	throw new RuntimeException(
+        'Không thể hoàn tiền cho đặt chỗ chưa thanh toán thành công.'
+    	);
+	}
 
             $datCho->update([
                 'trang_thai' => 'refunded',
