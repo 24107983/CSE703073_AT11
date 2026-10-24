@@ -10,18 +10,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
+#[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
 class DatChoHoldIntegrationTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
 
-        config(['database.default' => 'sqlite']);
-        config(['database.connections.sqlite.database' => ':memory:']);
+        // Ép test sử dụng SQLite in-memory, không ảnh hưởng database thật.
+        config([
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => ':memory:',
+        ]);
 
         DB::purge('sqlite');
         DB::setDefaultConnection('sqlite');
 
+        $this->createTestSchema();
+    }
+
+    private function createTestSchema(): void
+    {
         Schema::create('nguoi_dung', function (Blueprint $table) {
             $table->increments('nguoi_dung_id');
             $table->string('ho_ten', 150);
@@ -91,6 +101,16 @@ class DatChoHoldIntegrationTest extends TestCase
         });
     }
 
+    protected function tearDown(): void
+    {
+        Auth::logout();
+
+        DB::disconnect('sqlite');
+        DB::purge('sqlite');
+
+        parent::tearDown();
+    }
+
     public function test_hold_persists_booking_capacity_and_history(): void
     {
         $userId = DB::table('nguoi_dung')->insertGetId([
@@ -117,6 +137,8 @@ class DatChoHoldIntegrationTest extends TestCase
             ]);
 
         Auth::login(NguoiDung::findOrFail($userId));
+
+        $startedAt = now();
 
         $booking = app(DatChoService::class)->hold($availabilityId, 3);
 
@@ -145,11 +167,9 @@ class DatChoHoldIntegrationTest extends TestCase
 
         $this->assertNotNull($booking->het_han_giu);
 
-$expectedExpiry = now()->addMinutes(15);
-
-$this->assertEquals(
-    $expectedExpiry->timestamp,
-    $booking->het_han_giu->timestamp
-);
+        $this->assertEquals(
+            $startedAt->copy()->addMinutes(15)->timestamp,
+            $booking->het_han_giu->timestamp
+        );
     }
 }
