@@ -12,5 +12,8 @@ export default defineConfig({
         secure: false
       }
     }
+  },
+  preview: {
+    allowedHosts: ['cse703073-at11.onrender.com']
   }
 })
