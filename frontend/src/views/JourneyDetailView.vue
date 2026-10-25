@@ -5,6 +5,13 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import hanoiJourneyImage from '../assets/images/journeys/hanoi.jpeg'
 import hueJourneyImage from '../assets/images/journeys/hue.jpg'
 import hoiAnJourneyImage from '../assets/images/journeys/hoi-an.jpg'
+import journey4Image from '../assets/images/journeys/journey-4.jpg'
+import journey5Image from '../assets/images/journeys/journey-5.jpg'
+import journey6Image from '../assets/images/journeys/journey-6.jpg'
+import journey7Image from '../assets/images/journeys/journey-7.jpg'
+import journey8Image from '../assets/images/journeys/journey-8.jpg'
+import journey9Image from '../assets/images/journeys/journey-9.jpg'
+import journey10Image from '../assets/images/journeys/journey-10.jpg'
 
 const route = useRoute()
 const router = useRouter()
@@ -200,7 +207,14 @@ const getJourneyImage = (id) => {
   const imageMap = {
     1: hanoiJourneyImage,
     2: hueJourneyImage,
-    3: hoiAnJourneyImage
+    3: hoiAnJourneyImage,
+    4: journey4Image,
+    5: journey5Image,
+    6: journey6Image,
+    7: journey7Image,
+    8: journey8Image,
+    9: journey9Image,
+    10: journey10Image
   }
 
   return imageMap[id] || null

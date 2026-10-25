@@ -48,14 +48,19 @@ const router = createRouter({
       component: () => import('../views/JourneyDetailView.vue')
     },
     {
-  path: '/thanh-toan/:datChoId',
-  name: 'thanh-toan',
-  component: () => import('../views/PaymentView.vue')
-},
+      path: '/thanh-toan/:datChoId',
+      name: 'thanh-toan',
+      component: () => import('../views/PaymentView.vue')
+    },
     {
       path: '/hanh-trinh/:id/dat-cho',
       name: 'dat-cho',
       component: () => import('../views/BookingView.vue')
+    },
+    {
+      path: '/ho-so',
+      name: 'ho-so',
+      component: () => import('../views/ProfileView.vue')
     },
     {
       path: '/dang-nhap',

@@ -139,24 +139,38 @@ onUnmounted(() => {
         >
           Hành trình ẩm thực
         </RouterLink>
-<RouterLink
-        v-if="user?.vai_tro === 'quan_tri_vien'"
-        to="/admin"
-        @click="closeMobileMenu"
-      >
-        Quản trị
-      </RouterLink>
+
+        <!-- Menu Quản trị chỉ hiện khi là Admin -->
+        <RouterLink
+          v-if="user?.vai_tro === 'quan_tri_vien'"
+          to="/admin"
+          @click="closeMobileMenu"
+        >
+          Quản trị
+        </RouterLink>
+
+        <!-- Hồ sơ cá nhân: Chỉ hiện khi ĐÃ ĐĂNG NHẬP và KHÔNG PHẢI là Admin/Cộng tác viên -->
+        <RouterLink
+          v-if="user && user.vai_tro !== 'quan_tri_vien' && user.vai_tro !== 'cong_tac_vien'"
+          to="/ho-so"
+          @click="closeMobileMenu"
+        >
+          Hồ sơ cá nhân
+        </RouterLink>
+
       </nav>
 
 
-<button
-  type="button"
-  class="theme-toggle"
-  :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
-  @click="toggleTheme"
->
-  {{ isDark ? '☀️ Sáng' : '🌙 Tối' }}
-</button>
+      <!-- THEME TOGGLE -->
+      <button
+        type="button"
+        class="theme-toggle"
+        :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+        @click="toggleTheme"
+      >
+        {{ isDark ? '☀️ Sáng' : '🌙 Tối' }}
+      </button>
+
 
       <!-- DESKTOP AUTH -->
       <div
@@ -244,13 +258,23 @@ onUnmounted(() => {
         >
           Hành trình ẩm thực
         </RouterLink>
-<RouterLink
-        v-if="user?.vai_tro === 'quan_tri_vien'"
-        to="/admin"
-        @click="closeMobileMenu"
-      >
-        Quản trị
-      </RouterLink>
+
+        <RouterLink
+          v-if="user?.vai_tro === 'quan_tri_vien'"
+          to="/admin"
+          @click="closeMobileMenu"
+        >
+          Quản trị
+        </RouterLink>
+
+        <RouterLink
+          v-if="user && user.vai_tro !== 'quan_tri_vien' && user.vai_tro !== 'cong_tac_vien'"
+          to="/ho-so"
+          @click="closeMobileMenu"
+        >
+          Hồ sơ cá nhân
+        </RouterLink>
+
         <RouterLink
           to="/hanh-trinh"
           class="mobile-booking-link"

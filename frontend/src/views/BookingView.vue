@@ -255,7 +255,15 @@ const fetchJourney = async () => {
     loading.value = false
   }
 }
-
+const existingBookings = JSON.parse(localStorage.getItem('user_bookings') || '[]')
+existingBookings.push({
+  email: currentUserEmail, // Email hoặc tài khoản đang đăng nhập
+  tenHanhTrinh: 'Tên hành trình vừa đặt',
+  ngayDat: new Date().toLocaleDateString('vi-VN'),
+  soLuong: 2,
+  status: 'Đã xác nhận'
+})
+localStorage.setItem('user_bookings', JSON.stringify(existingBookings))
 onMounted(() => {
   fetchJourney()
 })

@@ -12,11 +12,13 @@ const apiUnavailable = ref(false)
 const locations = ref([])
 const selectedRegion = ref('')
 const selectedProvince = ref('')
+const searchKeyword = ref('')
 const selectedLocationId = ref(null)
 
 let map = null
 let markerLayer = null
 const markersById = new Map()
+
 
 const regionOptions = [
   { label: 'Miền Bắc', value: 'Bắc' },
@@ -24,31 +26,114 @@ const regionOptions = [
   { label: 'Miền Nam', value: 'Nam' },
 ]
 
-// API contract specifies tinh_thanh_id, but not province names or region mapping.
-// Keep province options based on returned API data, and don't invent coordinates.
+// Ánh xạ tạm theo các tỉnh/thành trong bộ dữ liệu hiện tại.
+// Khi API trả tên tỉnh và vùng miền, nên chuyển sang dùng dữ liệu API.
+const provinceMap = {
+  1: { name: 'Hà Nội', region: 'Bắc' },
+  2: { name: 'Hải Phòng', region: 'Bắc' },
+  3: { name: 'Hà Giang', region: 'Bắc' },
+  4: { name: 'Huế', region: 'Trung' },
+  5: { name: 'Đà Nẵng', region: 'Trung' },
+  6: { name: 'Quảng Nam', region: 'Trung' },
+  7: { name: 'TP. Hồ Chí Minh', region: 'Nam' },
+  8: { name: 'Cần Thơ', region: 'Nam' },
+  9: { name: 'An Giang', region: 'Nam' },
+}
+
+function getProvinceInfo(item) {
+  const id = item.tinh_thanh_id
+  const mapped = provinceMap[id] ?? provinceMap[String(id)]
+
+  return {
+    id: id == null ? '' : String(id),
+    name:
+      item.ten_tinh ??
+      item.ten_tinh_thanh ??
+      item.tinhThanh?.ten_tinh ??
+      item.tinh_thanh?.ten_tinh ??
+      mapped?.name ??
+      '',
+    region:
+      item.ten_vung ??
+      item.vung_mien?.ten_vung ??
+      item.vungMien?.ten_vung ??
+      mapped?.region ??
+      '',
+  }
+}
+
 const provinceOptions = computed(() => {
   const unique = new Map()
+
   for (const item of locations.value) {
-    const id = item.tinh_thanh_id
-    const name = item.ten_tinh ?? item.ten_tinh_thanh ?? ''
-    if (id != null && name) unique.set(String(id), { value: String(id), label: name })
+    const province = getProvinceInfo(item)
+
+    if (!province.id || !province.name) continue
+
+    if (
+      selectedRegion.value &&
+      province.region !== selectedRegion.value
+    ) {
+      continue
+    }
+
+    unique.set(province.id, {
+      value: province.id,
+      label: province.name,
+    })
   }
-  return [...unique.values()].sort((a, b) => a.label.localeCompare(b.label, 'vi'))
+
+  return [...unique.values()].sort(
+    (a, b) => a.label.localeCompare(b.label, 'vi')
+  )
 })
 
 const filteredLocations = computed(() => {
+  const keyword = searchKeyword.value
+    .trim()
+    .toLocaleLowerCase('vi')
+
   return locations.value.filter((item) => {
-    if (selectedProvince.value &&
-        String(item.tinh_thanh_id) !== selectedProvince.value) return false
+    const province = getProvinceInfo(item)
 
-    // Region filtering is applied only when the API provides a region field.
-    if (selectedRegion.value && item.vung_mien &&
-        item.vung_mien !== selectedRegion.value) return false
+    // Lọc theo tỉnh/thành
+    if (
+      selectedProvince.value &&
+      province.id !== selectedProvince.value
+    ) {
+      return false
+    }
 
-    if (selectedRegion.value && !item.vung_mien) return false
+    // Lọc theo vùng miền
+    if (
+      selectedRegion.value &&
+      province.region !== selectedRegion.value
+    ) {
+      return false
+    }
+
+    // Tìm theo tên địa điểm, địa chỉ, tỉnh/thành
+    if (keyword) {
+      const searchableText = [
+        item.ten_dia_diem,
+        item.dia_chi,
+        province.name,
+        item.ten_mon_an,
+        item.mo_ta,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('vi')
+
+      if (!searchableText.includes(keyword)) {
+        return false
+      }
+    }
+
     return true
   })
 })
+
 
 const validCoordinate = (value, min, max) => {
   if (value === null || value === undefined || value === '') return false
@@ -148,20 +233,29 @@ async function loadLocations() {
 }
 
 function resetFilters() {
+  searchKeyword.value = ''
   selectedRegion.value = ''
   selectedProvince.value = ''
+  selectedLocationId.value = null
 }
-
+function searchLocations() {
+  selectedLocationId.value = null
+}
 onMounted(async () => {
   map = L.map(mapElement.value, {
     zoomControl: true,
     scrollWheelZoom: true,
   }).setView([16.2, 107.8], 5)
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+  {
+    attribution: 'Tiles &copy; Esri',
     maxZoom: 19,
-  }).addTo(map)
+  }
+).addTo(map)
+
 
   markerLayer = L.layerGroup().addTo(map)
   await loadLocations()
@@ -192,6 +286,22 @@ onBeforeUnmount(() => {
       </header>
 
       <section class="filter-panel">
+
+      <section class="search-panel">
+        <form class="search-form" @submit.prevent="searchLocations">
+          <span class="search-icon">⌕</span>
+          <input
+            v-model.trim="searchKeyword"
+            type="search"
+            placeholder="Tìm món ăn, địa điểm hoặc tỉnh/thành phố..."
+            aria-label="Tìm kiếm địa điểm ẩm thực"
+          />
+          <button type="submit" class="search-button">
+            Tìm kiếm
+          </button>
+        </form>
+      </section>
+
         <div class="filter-item">
           <label for="region">Vùng miền</label>
           <select id="region" v-model="selectedRegion">
@@ -523,4 +633,104 @@ onBeforeUnmount(() => {
     padding: 14px;
   }
 }
+
+/* Thanh tìm kiếm địa điểm */
+.search-panel {
+  width: 100%;
+  min-width: 0;
+}
+
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 4px 5px 4px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-form:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.search-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.search-form input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 15px;
+  box-shadow: none;
+}
+
+.search-form input::placeholder {
+  color: #94a3b8;
+}
+
+.search-form input:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.search-form input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.search-button {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 20px;
+  border: 1px solid #2563eb;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.search-button:hover {
+  background: #1d4ed8;
+}
+
+.search-button:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 639px) {
+  .search-form {
+    gap: 8px;
+    padding-left: 12px;
+  }
+
+  .search-button {
+    padding: 0 14px;
+  }
+}
+
 </style>
