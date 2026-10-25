@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://posters-alignment-seven-berkeley.trycloudflare.com',
+        target: 'https://hardly-angeles-ears-rebecca.trycloudflare.com',
         changeOrigin: true,
         secure: false
       }
