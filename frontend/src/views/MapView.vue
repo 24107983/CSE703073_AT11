@@ -1,7 +1,13 @@
 
 <script setup>
-import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import axios from 'axios'
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  watch,
+} from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -17,8 +23,9 @@ const selectedLocationId = ref(null)
 
 let map = null
 let markerLayer = null
-const markersById = new Map()
+let resizeHandler = null
 
+const markersById = new Map()
 
 const regionOptions = [
   { label: 'Miền Bắc', value: 'Bắc' },
@@ -26,42 +33,51 @@ const regionOptions = [
   { label: 'Miền Nam', value: 'Nam' },
 ]
 
-// Ánh xạ tạm theo các tỉnh/thành trong bộ dữ liệu hiện tại.
-// Khi API trả tên tỉnh và vùng miền, nên chuyển sang dùng dữ liệu API.
-const provinceMap = {
-  1: { name: 'Hà Nội', region: 'Bắc' },
-  2: { name: 'Hải Phòng', region: 'Bắc' },
-  3: { name: 'Hà Giang', region: 'Bắc' },
-  4: { name: 'Huế', region: 'Trung' },
-  5: { name: 'Đà Nẵng', region: 'Trung' },
-  6: { name: 'Quảng Nam', region: 'Trung' },
-  7: { name: 'TP. Hồ Chí Minh', region: 'Nam' },
-  8: { name: 'Cần Thơ', region: 'Nam' },
-  9: { name: 'An Giang', region: 'Nam' },
-}
-
+/**
+ * Chuẩn hóa thông tin tỉnh/thành và vùng miền.
+ * Hỗ trợ dữ liệu JSON dạng chuỗi hoặc object.
+ */
 function getProvinceInfo(item) {
-  const id = item.tinh_thanh_id
-  const mapped = provinceMap[id] ?? provinceMap[String(id)]
+  const provinceValue =
+    item.tinh_thanh ??
+    item.ten_tinh ??
+    item.ten_tinh_thanh ??
+    item.tinhThanh?.ten_tinh ??
+    item.tinh_thanh_obj?.ten_tinh ??
+    ''
+
+  const provinceName =
+    typeof provinceValue === 'object' && provinceValue !== null
+      ? provinceValue.ten_tinh ?? provinceValue.name ?? ''
+      : String(provinceValue)
+
+  const regionValue =
+    item.vung_mien ??
+    item.ten_vung ??
+    item.vungMien?.ten_vung ??
+    ''
+
+  const regionName =
+    typeof regionValue === 'object' && regionValue !== null
+      ? regionValue.ten_vung ?? regionValue.name ?? ''
+      : String(regionValue)
+
+  const provinceId =
+    item.tinh_thanh_id ??
+    item.tinhThanh?.tinh_thanh_id ??
+    item.tinh_thanh_obj?.id ??
+    provinceName
 
   return {
-    id: id == null ? '' : String(id),
-    name:
-      item.ten_tinh ??
-      item.ten_tinh_thanh ??
-      item.tinhThanh?.ten_tinh ??
-      item.tinh_thanh?.ten_tinh ??
-      mapped?.name ??
-      '',
-    region:
-      item.ten_vung ??
-      item.vung_mien?.ten_vung ??
-      item.vungMien?.ten_vung ??
-      mapped?.region ??
-      '',
+    id: String(provinceId ?? ''),
+    name: provinceName,
+    region: regionName,
   }
 }
 
+/**
+ * Danh sách tỉnh/thành được lấy từ dữ liệu JSON.
+ */
 const provinceOptions = computed(() => {
   const unique = new Map()
 
@@ -83,11 +99,14 @@ const provinceOptions = computed(() => {
     })
   }
 
-  return [...unique.values()].sort(
-    (a, b) => a.label.localeCompare(b.label, 'vi')
+  return [...unique.values()].sort((a, b) =>
+    a.label.localeCompare(b.label, 'vi'),
   )
 })
 
+/**
+ * Lọc địa điểm theo tỉnh/thành, vùng miền và từ khóa.
+ */
 const filteredLocations = computed(() => {
   const keyword = searchKeyword.value
     .trim()
@@ -96,7 +115,6 @@ const filteredLocations = computed(() => {
   return locations.value.filter((item) => {
     const province = getProvinceInfo(item)
 
-    // Lọc theo tỉnh/thành
     if (
       selectedProvince.value &&
       province.id !== selectedProvince.value
@@ -104,7 +122,6 @@ const filteredLocations = computed(() => {
       return false
     }
 
-    // Lọc theo vùng miền
     if (
       selectedRegion.value &&
       province.region !== selectedRegion.value
@@ -112,7 +129,6 @@ const filteredLocations = computed(() => {
       return false
     }
 
-    // Tìm theo tên địa điểm, địa chỉ, tỉnh/thành
     if (keyword) {
       const searchableText = [
         item.ten_dia_diem,
@@ -134,23 +150,33 @@ const filteredLocations = computed(() => {
   })
 })
 
+function validCoordinate(value, min, max) {
+  if (value === null || value === undefined || value === '') {
+    return false
+  }
 
-const validCoordinate = (value, min, max) => {
-  if (value === null || value === undefined || value === '') return false
   const number = Number(value)
+
   return Number.isFinite(number) && number >= min && number <= max
 }
 
-const hasCoordinates = (item) =>
-  validCoordinate(item.vi_do, -90, 90) &&
-  validCoordinate(item.kinh_do, -180, 180)
+function hasCoordinates(item) {
+  return (
+    validCoordinate(item.vi_do, -90, 90) &&
+    validCoordinate(item.kinh_do, -180, 180)
+  )
+}
 
 const mappedLocations = computed(() =>
   filteredLocations.value.filter(hasCoordinates),
 )
 
+/**
+ * Chọn một địa điểm trong danh sách và di chuyển bản đồ.
+ */
 function selectLocation(item) {
-  selectedLocationId.value = item.dia_diem_id
+  selectedLocationId.value = String(item.dia_diem_id)
+
   const marker = markersById.get(String(item.dia_diem_id))
 
   if (marker && map) {
@@ -159,36 +185,9 @@ function selectLocation(item) {
   }
 }
 
-function drawMarkers() {
-  if (!map || !markerLayer) return
-
-  markerLayer.clearLayers()
-  markersById.clear()
-
-  for (const item of mappedLocations.value) {
-    const marker = L.marker([Number(item.vi_do), Number(item.kinh_do)])
-      .bindPopup(`
-        <strong>${escapeHtml(item.ten_dia_diem || 'Địa điểm ẩm thực')}</strong>
-        <br>${escapeHtml(item.dia_chi || 'Chưa có địa chỉ')}
-      `)
-
-    marker.on('click', () => {
-      selectedLocationId.value = item.dia_diem_id
-    })
-
-    marker.addTo(markerLayer)
-    markersById.set(String(item.dia_diem_id), marker)
-  }
-
-  const markers = [...markersById.values()]
-  if (markers.length > 0) {
-    const bounds = L.featureGroup(markers).getBounds()
-    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 13 })
-  } else {
-    map.setView([16.2, 107.8], 5)
-  }
-}
-
+/**
+ * Chống chèn HTML không an toàn vào nội dung popup.
+ */
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     '&': '&amp;',
@@ -199,34 +198,116 @@ function escapeHtml(value) {
   })[char])
 }
 
+/**
+ * Vẽ lại marker từ danh sách địa điểm đã lọc.
+ */
+function drawMarkers() {
+  if (!map || !markerLayer) return
+
+  markerLayer.clearLayers()
+  markersById.clear()
+
+  for (const item of mappedLocations.value) {
+    const id = String(item.dia_diem_id)
+
+    const marker = L.marker([
+      Number(item.vi_do),
+      Number(item.kinh_do),
+    ])
+
+    marker.bindPopup(`
+      <strong>${escapeHtml(item.ten_dia_diem || 'Địa điểm ẩm thực')}</strong>
+      <br>
+      ${escapeHtml(item.dia_chi || 'Chưa có địa chỉ')}
+    `)
+
+    marker.on('click', () => {
+      selectedLocationId.value = id
+    })
+
+    marker.addTo(markerLayer)
+    markersById.set(id, marker)
+  }
+
+  const markers = [...markersById.values()]
+
+  if (markers.length > 0) {
+    const bounds = L.featureGroup(markers).getBounds()
+
+    map.fitBounds(bounds, {
+      padding: [36, 36],
+      maxZoom: 13,
+    })
+  } else {
+    map.setView([16.2, 107.8], 5)
+  }
+}
+
+/**
+ * Tải dữ liệu độc lập từ:
+ * frontend/public/data/map-locations.json
+ *
+ * Không gọi API và không sửa cơ sở dữ liệu.
+ */
 async function loadLocations() {
   loading.value = true
   mapError.value = ''
   apiUnavailable.value = false
 
   try {
-    const response = await axios.get('/api/dia-diem', {
-      params: { page: 1, per_page: 100 },
+    const response = await fetch('/data/map-locations.json', {
+      cache: 'no-store',
     })
 
-    const payload = response.data
-    const rows = Array.isArray(payload)
-      ? payload
-      : payload?.data?.data ?? payload?.data ?? payload?.items ?? []
-
-    if (!Array.isArray(rows)) {
-      throw new Error('Dữ liệu API địa điểm chưa đúng định dạng danh sách.')
+    if (!response.ok) {
+      throw new Error(`Không tải được JSON: HTTP ${response.status}`)
     }
 
-    locations.value = rows
+    const rows = await response.json()
+
+    if (!Array.isArray(rows)) {
+      throw new Error('Dữ liệu JSON phải là một mảng địa điểm.')
+    }
+
+    locations.value = rows.map((item, index) => ({
+      ...item,
+
+      dia_diem_id: String(
+        item.dia_diem_id ?? item.id ?? `map-${index + 1}`,
+      ),
+
+      ten_dia_diem: String(
+        item.ten_dia_diem ??
+        item.ten_mon_an ??
+        'Địa điểm ẩm thực',
+      ),
+
+      dia_chi: String(item.dia_chi ?? ''),
+
+      vi_do:
+        item.vi_do === null ||
+        item.vi_do === undefined ||
+        item.vi_do === ''
+          ? null
+          : Number(item.vi_do),
+
+      kinh_do:
+        item.kinh_do === null ||
+        item.kinh_do === undefined ||
+        item.kinh_do === ''
+          ? null
+          : Number(item.kinh_do),
+    }))
   } catch (error) {
+    console.error('Lỗi tải dữ liệu bản đồ:', error)
+
     locations.value = []
-    apiUnavailable.value = error.response?.status === 404
-    mapError.value = apiUnavailable.value
-      ? 'API địa điểm chưa được triển khai. Vui lòng thử lại sau khi backend bàn giao.'
-      : 'Không tải được dữ liệu địa điểm. Hãy kiểm tra kết nối backend rồi thử lại.'
+
+    mapError.value =
+      'Không tải được dữ liệu bản đồ. Hãy kiểm tra file public/data/map-locations.json.'
   } finally {
     loading.value = false
+
     await nextTick()
     drawMarkers()
   }
@@ -238,39 +319,80 @@ function resetFilters() {
   selectedProvince.value = ''
   selectedLocationId.value = null
 }
+
 function searchLocations() {
   selectedLocationId.value = null
 }
+
+/**
+ * Khởi tạo bản đồ.
+ */
 onMounted(async () => {
+  if (!mapElement.value) return
+
   map = L.map(mapElement.value, {
     zoomControl: true,
     scrollWheelZoom: true,
   }).setView([16.2, 107.8], 5)
 
-
-L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-  {
-    attribution: 'Tiles &copy; Esri',
-    maxZoom: 19,
-  }
-).addTo(map)
-
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    {
+      attribution: 'Tiles &copy; Esri',
+      maxZoom: 19,
+    },
+  ).addTo(map)
 
   markerLayer = L.layerGroup().addTo(map)
+
   await loadLocations()
-  setTimeout(() => map?.invalidateSize(), 100)
+
+  resizeHandler = () => {
+    map?.invalidateSize()
+  }
+
+  window.addEventListener('resize', resizeHandler)
+
+  await nextTick()
+  map.invalidateSize()
 })
 
-watch([filteredLocations], () => {
+/**
+ * Vẽ lại marker khi thay đổi tìm kiếm hoặc bộ lọc.
+ */
+watch(filteredLocations, async () => {
+  await nextTick()
   drawMarkers()
 })
 
+/**
+ * Khi đổi vùng miền, xóa tỉnh/thành đã chọn nếu tỉnh đó
+ * không còn thuộc vùng miền mới.
+ */
+watch(selectedRegion, () => {
+  if (!selectedProvince.value) return
+
+  const provinceStillAvailable = provinceOptions.value.some(
+    (province) => province.value === selectedProvince.value,
+  )
+
+  if (!provinceStillAvailable) {
+    selectedProvince.value = ''
+  }
+})
+
 onBeforeUnmount(() => {
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+  }
+
   if (map) {
     map.remove()
     map = null
   }
+
+  markerLayer = null
+  markersById.clear()
 })
 </script>
 
@@ -279,34 +401,43 @@ onBeforeUnmount(() => {
     <div class="container">
       <header class="page-heading">
         <p class="eyebrow">KHÁM PHÁ ẨM THỰC</p>
+
         <h1>Bản đồ ẩm thực vùng miền</h1>
+
         <p class="page-description">
           Khám phá các địa điểm ẩm thực trên bản đồ Việt Nam.
         </p>
       </header>
 
       <section class="filter-panel">
+        <section class="search-panel">
+          <form class="search-form" @submit.prevent="searchLocations">
+            <span class="search-icon">⌕</span>
 
-      <section class="search-panel">
-        <form class="search-form" @submit.prevent="searchLocations">
-          <span class="search-icon">⌕</span>
-          <input
-            v-model.trim="searchKeyword"
-            type="search"
-            placeholder="Tìm món ăn, địa điểm hoặc tỉnh/thành phố..."
-            aria-label="Tìm kiếm địa điểm ẩm thực"
-          />
-          <button type="submit" class="search-button">
-            Tìm kiếm
-          </button>
-        </form>
-      </section>
+            <input
+              v-model.trim="searchKeyword"
+              type="search"
+              placeholder="Tìm món ăn, địa điểm hoặc tỉnh/thành phố..."
+              aria-label="Tìm kiếm địa điểm ẩm thực"
+            />
+
+            <button type="submit" class="search-button">
+              Tìm kiếm
+            </button>
+          </form>
+        </section>
 
         <div class="filter-item">
           <label for="region">Vùng miền</label>
+
           <select id="region" v-model="selectedRegion">
             <option value="">Tất cả vùng miền</option>
-            <option v-for="region in regionOptions" :key="region.value" :value="region.value">
+
+            <option
+              v-for="region in regionOptions"
+              :key="region.value"
+              :value="region.value"
+            >
               {{ region.label }}
             </option>
           </select>
@@ -314,31 +445,62 @@ onBeforeUnmount(() => {
 
         <div class="filter-item">
           <label for="province">Tỉnh / thành phố</label>
+
           <select id="province" v-model="selectedProvince">
             <option value="">Tất cả tỉnh / thành</option>
-            <option v-for="province in provinceOptions" :key="province.value" :value="province.value">
+
+            <option
+              v-for="province in provinceOptions"
+              :key="province.value"
+              :value="province.value"
+            >
               {{ province.label }}
             </option>
           </select>
         </div>
 
-        <button type="button" class="reset-button" @click="resetFilters">
+        <button
+          type="button"
+          class="reset-button"
+          @click="resetFilters"
+        >
           Xóa bộ lọc
         </button>
-        <button type="button" class="refresh-button" :disabled="loading" @click="loadLocations">
+
+        <button
+          type="button"
+          class="refresh-button"
+          :disabled="loading"
+          @click="loadLocations"
+        >
           {{ loading ? 'Đang tải...' : 'Tải lại dữ liệu' }}
         </button>
       </section>
 
-      <p v-if="mapError" class="status-message error-message" role="alert">
+      <p
+        v-if="mapError"
+        class="status-message error-message"
+        role="alert"
+      >
         {{ mapError }}
       </p>
 
       <section class="map-layout">
         <div class="map-container">
-          <div ref="mapElement" class="leaflet-map" aria-label="Bản đồ địa điểm ẩm thực"></div>
-          <div v-if="loading" class="map-status">Đang tải địa điểm...</div>
-          <div v-else-if="!mappedLocations.length" class="map-status">
+          <div
+            ref="mapElement"
+            class="leaflet-map"
+            aria-label="Bản đồ địa điểm ẩm thực"
+          ></div>
+
+          <div v-if="loading" class="map-status">
+            Đang tải địa điểm...
+          </div>
+
+          <div
+            v-else-if="!mappedLocations.length"
+            class="map-status"
+          >
             Chưa có địa điểm với tọa độ hợp lệ để hiển thị.
           </div>
         </div>
@@ -347,7 +509,11 @@ onBeforeUnmount(() => {
           <div class="location-header">
             <div>
               <h2>Địa điểm ẩm thực</h2>
-              <p>{{ filteredLocations.length }} địa điểm · {{ mappedLocations.length }} có tọa độ</p>
+
+              <p>
+                {{ filteredLocations.length }} địa điểm ·
+                {{ mappedLocations.length }} có tọa độ
+              </p>
             </div>
           </div>
 
@@ -355,20 +521,36 @@ onBeforeUnmount(() => {
             Đang tải dữ liệu địa điểm...
           </div>
 
-          <div v-else-if="filteredLocations.length" class="location-list">
+          <div
+            v-else-if="filteredLocations.length"
+            class="location-list"
+          >
             <button
               v-for="location in filteredLocations"
               :key="location.dia_diem_id"
               type="button"
               class="location-card"
-              :class="{ selected: selectedLocationId === location.dia_diem_id }"
+              :class="{
+                selected:
+                  selectedLocationId === location.dia_diem_id,
+              }"
               @click="selectLocation(location)"
             >
               <span class="location-card-icon">📍</span>
+
               <span class="location-card-content">
-                <strong>{{ location.ten_dia_diem || 'Địa điểm chưa có tên' }}</strong>
-                <span class="location-address">{{ location.dia_chi || 'Chưa có địa chỉ' }}</span>
-                <span v-if="!hasCoordinates(location)" class="no-coordinate">
+                <strong>
+                  {{ location.ten_dia_diem || 'Địa điểm chưa có tên' }}
+                </strong>
+
+                <span class="location-address">
+                  {{ location.dia_chi || 'Chưa có địa chỉ' }}
+                </span>
+
+                <span
+                  v-if="!hasCoordinates(location)"
+                  class="no-coordinate"
+                >
                   Chưa có tọa độ bản đồ
                 </span>
               </span>
@@ -377,7 +559,11 @@ onBeforeUnmount(() => {
 
           <div v-else class="empty-state">
             <h3>Chưa có dữ liệu địa điểm</h3>
-            <p>Danh sách sẽ hiển thị khi API địa điểm được triển khai và trả về dữ liệu.</p>
+
+            <p>
+              Danh sách sẽ hiển thị khi file dữ liệu bản đồ
+              có các địa điểm hợp lệ.
+            </p>
           </div>
         </aside>
       </section>
@@ -605,36 +791,7 @@ onBeforeUnmount(() => {
   color: var(--color-text);
 }
 
-@media (max-width: 1023px) {
-  .map-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .location-panel {
-    max-height: none;
-  }
-}
-
-@media (max-width: 639px) {
-  .map-page {
-    padding: 28px 0 44px;
-  }
-
-  .filter-panel {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .map-container {
-    height: 440px;
-  }
-
-  .location-panel {
-    padding: 14px;
-  }
-}
-
-/* Thanh tìm kiếm địa điểm */
+/* Thanh tìm kiếm */
 .search-panel {
   width: 100%;
   min-width: 0;
@@ -722,7 +879,34 @@ onBeforeUnmount(() => {
   transform: scale(0.98);
 }
 
+@media (max-width: 1023px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .location-panel {
+    max-height: none;
+  }
+}
+
 @media (max-width: 639px) {
+  .map-page {
+    padding: 28px 0 44px;
+  }
+
+  .filter-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .map-container {
+    height: 440px;
+  }
+
+  .location-panel {
+    padding: 14px;
+  }
+
   .search-form {
     gap: 8px;
     padding-left: 12px;
@@ -732,5 +916,4 @@ onBeforeUnmount(() => {
     padding: 0 14px;
   }
 }
-
 </style>

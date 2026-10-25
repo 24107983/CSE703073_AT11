@@ -1,0 +1,63 @@
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dulichso_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    env_file:
+      - .env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: nginx:1.27-alpine
+    container_name: dulichso_web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: dulichso_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: dulichso
+      MYSQL_USER: dulichso_app
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  python:
+    image: python:3.12-slim
+    container_name: dulichso_python
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./backend/python-service:/app
+    ports:
+      - "8001:8001"
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001"
+
+volumes:
+  db_data:
