@@ -103,4 +103,62 @@ class PythonRecommendationTest extends TestCase
                 'Gợi ý mặc định'
             );
     }
+
+    public function test_recommendation_skips_invalid_items_and_keeps_valid_items(): void
+    {
+        Http::fake([
+            '*' => Http::response([
+                'recommendations' => [
+                    [
+                        'id' => 12,
+                        'name' => 'Mon an thieu score',
+                    ],
+                    [
+                        'id' => '8',
+                        'name' => 'Banh xeo mien Tay',
+                        'score' => '0.87',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/api/python/recommend/10');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('recommendations.0.id', 8)
+            ->assertJsonPath(
+                'recommendations.0.name',
+                'Banh xeo mien Tay'
+            )
+            ->assertJsonPath('recommendations.0.score', 0.87)
+            ->assertJsonCount(1, 'recommendations');
+    }
+
+    public function test_recommendation_uses_fallback_when_all_items_are_invalid(): void
+    {
+        Http::fake([
+            '*' => Http::response([
+                'recommendations' => [
+                    [
+                        'id' => 12,
+                        'name' => 'Mon an thieu score',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/api/python/recommend/10');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('product_id', 10)
+            ->assertJsonPath('recommendations.0.id', 10)
+            ->assertJsonPath(
+                'recommendations.0.name',
+                'Gợi ý mặc định'
+            )
+            ->assertJsonPath('recommendations.0.score', 0);
+    }
+
 }
