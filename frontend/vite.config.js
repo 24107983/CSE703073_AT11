@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://hardly-angeles-ears-rebecca.trycloudflare.com',
+        target: 'https://dominant-enter-locked-trucks.trycloudflare.com',
         changeOrigin: true,
         secure: false
       }

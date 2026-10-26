@@ -1,4 +1,3 @@
-
 <script setup>
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import axios from 'axios'
@@ -15,10 +14,12 @@ const selectedProvince = ref('')
 const searchKeyword = ref('')
 const selectedLocationId = ref(null)
 
+const currentUserEmail = ref('guest')
+const bookmarks = ref({})
+
 let map = null
 let markerLayer = null
 const markersById = new Map()
-
 
 const regionOptions = [
   { label: 'Miền Bắc', value: 'Bắc' },
@@ -26,8 +27,6 @@ const regionOptions = [
   { label: 'Miền Nam', value: 'Nam' },
 ]
 
-// Ánh xạ tạm theo các tỉnh/thành trong bộ dữ liệu hiện tại.
-// Khi API trả tên tỉnh và vùng miền, nên chuyển sang dùng dữ liệu API.
 const provinceMap = {
   1: { name: 'Hà Nội', region: 'Bắc' },
   2: { name: 'Hải Phòng', region: 'Bắc' },
@@ -38,6 +37,29 @@ const provinceMap = {
   7: { name: 'TP. Hồ Chí Minh', region: 'Nam' },
   8: { name: 'Cần Thơ', region: 'Nam' },
   9: { name: 'An Giang', region: 'Nam' },
+}
+
+function loadUserBookmarks() {
+  const storedUser = localStorage.getItem('auth_user') || localStorage.getItem('user')
+  if (storedUser) {
+    try {
+      const parsed = JSON.parse(storedUser)
+      currentUserEmail.value = parsed.email || parsed.ten || 'guest'
+    } catch (e) {}
+  }
+  const storageKey = `bookmarked_locations_${currentUserEmail.value}`
+  bookmarks.value = JSON.parse(localStorage.getItem(storageKey) || '{}')
+}
+
+function isBookmarked(id) {
+  return !!bookmarks.value[id]
+}
+
+function toggleBookmark(location) {
+  const id = location.dia_diem_id
+  bookmarks.value[id] = !bookmarks.value[id]
+  const storageKey = `bookmarked_locations_${currentUserEmail.value}`
+  localStorage.setItem(storageKey, JSON.stringify(bookmarks.value))
 }
 
 function getProvinceInfo(item) {
@@ -96,7 +118,6 @@ const filteredLocations = computed(() => {
   return locations.value.filter((item) => {
     const province = getProvinceInfo(item)
 
-    // Lọc theo tỉnh/thành
     if (
       selectedProvince.value &&
       province.id !== selectedProvince.value
@@ -104,7 +125,6 @@ const filteredLocations = computed(() => {
       return false
     }
 
-    // Lọc theo vùng miền
     if (
       selectedRegion.value &&
       province.region !== selectedRegion.value
@@ -112,7 +132,6 @@ const filteredLocations = computed(() => {
       return false
     }
 
-    // Tìm theo tên địa điểm, địa chỉ, tỉnh/thành
     if (keyword) {
       const searchableText = [
         item.ten_dia_diem,
@@ -134,7 +153,6 @@ const filteredLocations = computed(() => {
   })
 })
 
-
 const validCoordinate = (value, min, max) => {
   if (value === null || value === undefined || value === '') return false
   const number = Number(value)
@@ -149,12 +167,19 @@ const mappedLocations = computed(() =>
   filteredLocations.value.filter(hasCoordinates),
 )
 
+function getGoogleMapsUrl(item) {
+  const query = item.dia_chi
+    ? `${item.ten_dia_diem || ''} ${item.dia_chi}`
+    : `${item.vi_do},${item.kinh_do}`
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
 function selectLocation(item) {
   selectedLocationId.value = item.dia_diem_id
   const marker = markersById.get(String(item.dia_diem_id))
 
   if (marker && map) {
-    map.setView(marker.getLatLng(), Math.max(map.getZoom(), 13))
+    map.setView(marker.getLatLng(), Math.max(map.getZoom(), 15))
     marker.openPopup()
   }
 }
@@ -166,10 +191,26 @@ function drawMarkers() {
   markersById.clear()
 
   for (const item of mappedLocations.value) {
-    const marker = L.marker([Number(item.vi_do), Number(item.kinh_do)])
+    const customIcon = L.divIcon({
+      className: 'custom-clean-marker',
+      html: `
+        <div class="map-pin-dot" title="${escapeHtml(item.ten_dia_diem || 'Quán ăn')}">
+          <span>📍</span>
+        </div>
+      `,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    })
+
+    const mapsUrl = getGoogleMapsUrl(item)
+
+    const marker = L.marker([Number(item.vi_do), Number(item.kinh_do)], { icon: customIcon })
       .bindPopup(`
-        <strong>${escapeHtml(item.ten_dia_diem || 'Địa điểm ẩm thực')}</strong>
-        <br>${escapeHtml(item.dia_chi || 'Chưa có địa chỉ')}
+        <div style="font-family: inherit; min-width: 180px;">
+          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(item.ten_dia_diem || 'Quán ăn ẩm thực')}</strong>
+          <p style="margin: 4px 0 8px; font-size: 12px; color: #64748b;">${escapeHtml(item.dia_chi || 'Chưa có địa chỉ')}</p>
+          <a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 10px; background: #2563eb; color: #fff; border-radius: 6px; font-size: 12px; text-decoration: none; font-weight: 600;">Xem trên Google Maps →</a>
+        </div>
       `)
 
     marker.on('click', () => {
@@ -185,7 +226,7 @@ function drawMarkers() {
     const bounds = L.featureGroup(markers).getBounds()
     map.fitBounds(bounds, { padding: [36, 36], maxZoom: 13 })
   } else {
-    map.setView([16.2, 107.8], 5)
+    map.setView([16.0471, 108.2068], 6)
   }
 }
 
@@ -238,24 +279,38 @@ function resetFilters() {
   selectedProvince.value = ''
   selectedLocationId.value = null
 }
+
 function searchLocations() {
   selectedLocationId.value = null
 }
+
 onMounted(async () => {
+  loadUserBookmarks()
+
   map = L.map(mapElement.value, {
-    zoomControl: true,
+    zoomControl: false,
     scrollWheelZoom: true,
-  }).setView([16.2, 107.8], 5)
+  }).setView([16.0471, 108.2068], 6)
 
+  L.control.zoom({ position: 'topleft' }).addTo(map)
 
-L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-  {
-    attribution: 'Tiles &copy; Esri',
-    maxZoom: 19,
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map)
+
+  const createTextLabel = (lat, lng, text, className) => {
+    const labelIcon = L.divIcon({
+      className: className,
+      html: `<div>${text}</div>`,
+      iconSize: [140, 40]
+    })
+    L.marker([lat, lng], { icon: labelIcon, interactive: false }).addTo(map)
   }
-).addTo(map)
 
+  createTextLabel(16.2, 111.5, 'QĐ. Hoàng Sa<br><span style="font-size:11px; font-weight:normal;">(Việt Nam)</span>', 'map-text-label')
+  createTextLabel(12.0, 115.0, 'Biển Đông', 'map-text-bien-dong')
+  createTextLabel(8.5, 112.5, 'QĐ. Trường Sa<br><span style="font-size:11px; font-weight:normal;">(Việt Nam)</span>', 'map-text-label')
 
   markerLayer = L.layerGroup().addTo(map)
   await loadLocations()
@@ -279,28 +334,27 @@ onBeforeUnmount(() => {
     <div class="container">
       <header class="page-heading">
         <p class="eyebrow">KHÁM PHÁ ẨM THỰC</p>
-        <h1>Bản đồ ẩm thực vùng miền</h1>
+        <h1>Bản đồ quán ăn & Địa điểm</h1>
         <p class="page-description">
-          Khám phá các địa điểm ẩm thực trên bản đồ Việt Nam.
+          Tra cứu danh sách các quán ăn đặc sắc và mở chỉ đường nhanh chóng trên Google Maps.
         </p>
       </header>
 
       <section class="filter-panel">
-
-      <section class="search-panel">
-        <form class="search-form" @submit.prevent="searchLocations">
-          <span class="search-icon">⌕</span>
-          <input
-            v-model.trim="searchKeyword"
-            type="search"
-            placeholder="Tìm món ăn, địa điểm hoặc tỉnh/thành phố..."
-            aria-label="Tìm kiếm địa điểm ẩm thực"
-          />
-          <button type="submit" class="search-button">
-            Tìm kiếm
-          </button>
-        </form>
-      </section>
+        <section class="search-panel">
+          <form class="search-form" @submit.prevent="searchLocations">
+            <span class="search-icon">⌕</span>
+            <input
+              v-model.trim="searchKeyword"
+              type="search"
+              placeholder="Tìm quán ăn, địa chỉ hoặc tỉnh/thành phố..."
+              aria-label="Tìm kiếm địa điểm ẩm thực"
+            />
+            <button type="submit" class="search-button">
+              Tìm kiếm
+            </button>
+          </form>
+        </section>
 
         <div class="filter-item">
           <label for="region">Vùng miền</label>
@@ -335,19 +389,12 @@ onBeforeUnmount(() => {
       </p>
 
       <section class="map-layout">
-        <div class="map-container">
-          <div ref="mapElement" class="leaflet-map" aria-label="Bản đồ địa điểm ẩm thực"></div>
-          <div v-if="loading" class="map-status">Đang tải địa điểm...</div>
-          <div v-else-if="!mappedLocations.length" class="map-status">
-            Chưa có địa điểm với tọa độ hợp lệ để hiển thị.
-          </div>
-        </div>
-
+        <!-- CỘT TRÁI: DANH SÁCH Địa điểm -->
         <aside class="location-panel">
           <div class="location-header">
             <div>
-              <h2>Địa điểm ẩm thực</h2>
-              <p>{{ filteredLocations.length }} địa điểm · {{ mappedLocations.length }} có tọa độ</p>
+              <h2>Danh sách Địa điểm</h2>
+              <p>{{ filteredLocations.length }} quán · {{ mappedLocations.length }} hiển thị trên bản đồ</p>
             </div>
           </div>
 
@@ -356,30 +403,63 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-else-if="filteredLocations.length" class="location-list">
-            <button
+            <div
               v-for="location in filteredLocations"
               :key="location.dia_diem_id"
-              type="button"
-              class="location-card"
+              class="restaurant-card"
               :class="{ selected: selectedLocationId === location.dia_diem_id }"
-              @click="selectLocation(location)"
             >
-              <span class="location-card-icon">📍</span>
-              <span class="location-card-content">
-                <strong>{{ location.ten_dia_diem || 'Địa điểm chưa có tên' }}</strong>
-                <span class="location-address">{{ location.dia_chi || 'Chưa có địa chỉ' }}</span>
-                <span v-if="!hasCoordinates(location)" class="no-coordinate">
-                  Chưa có tọa độ bản đồ
-                </span>
-              </span>
-            </button>
+              <div class="restaurant-card-header" @click="selectLocation(location)">
+                <h3>{{ location.ten_dia_diem || 'Quán ăn ẩm thực' }}</h3>
+                <span class="restaurant-tag">Đặc sản địa phương</span>
+              </div>
+              <p class="restaurant-address" @click="selectLocation(location)">
+                📍 {{ location.dia_chi || 'Chưa cập nhật địa chỉ chi tiết' }}
+              </p>
+              <p v-if="location.mo_ta" class="restaurant-desc" @click="selectLocation(location)">
+                {{ location.mo_ta }}
+              </p>
+
+              <!-- THANH CÔNG CỤ LIÊN KẾT & LƯU YÊU THÍCH -->
+              <div class="restaurant-actions">
+                <a
+                  :href="getGoogleMapsUrl(location)"
+                  target="_blank"
+                  class="action-pill-btn map-link"
+                  title="Mở vị trí trên Google Maps"
+                >
+                  <span>🗺️</span> Google Maps
+                </a>
+                <button type="button" class="action-pill-btn" @click="selectLocation(location)">
+                  <span>📍</span> Trên bản đồ
+                </button>
+                <button
+                  type="button"
+                  class="action-pill-btn bookmark-action-btn"
+                  :class="{ active: isBookmarked(location.dia_diem_id) }"
+                  @click="toggleBookmark(location)"
+                >
+                  <span>{{ isBookmarked(location.dia_diem_id) ? '♥' : '♡' }}</span>
+                  <span>{{ isBookmarked(location.dia_diem_id) ? 'Đã lưu' : 'Lưu' }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div v-else class="empty-state">
-            <h3>Chưa có dữ liệu địa điểm</h3>
-            <p>Danh sách sẽ hiển thị khi API địa điểm được triển khai và trả về dữ liệu.</p>
+            <h3>Không tìm thấy quán ăn phù hợp</h3>
+            <p>Vui lòng thử lại với từ khóa hoặc bộ lọc khác.</p>
           </div>
         </aside>
+
+        <!-- CỘT PHẢI: BẢN ĐỒ TƯƠNG TÁC -->
+        <div class="map-container">
+          <div ref="mapElement" class="leaflet-map" aria-label="Bản đồ địa điểm ẩm thực"></div>
+          <div v-if="loading" class="map-status">Đang tải địa điểm...</div>
+          <div v-else-if="!mappedLocations.length" class="map-status">
+            Chưa có quán ăn với tọa độ hợp lệ để hiển thị.
+          </div>
+        </div>
       </section>
     </div>
   </main>
@@ -468,14 +548,14 @@ onBeforeUnmount(() => {
 
 .map-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, .85fr);
+  grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.45fr);
   gap: 22px;
 }
 
 .map-container {
   position: relative;
   min-width: 0;
-  height: 600px;
+  height: 650px;
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -520,7 +600,7 @@ onBeforeUnmount(() => {
 
 .location-panel {
   min-width: 0;
-  max-height: 600px;
+  max-height: 650px;
   padding: 18px;
   overflow: auto;
   border: 1px solid var(--color-border);
@@ -531,6 +611,7 @@ onBeforeUnmount(() => {
 .location-header {
   padding-bottom: 14px;
   border-bottom: 1px solid var(--color-border);
+  margin-bottom: 14px;
 }
 
 .location-header h2 {
@@ -546,51 +627,110 @@ onBeforeUnmount(() => {
 
 .location-list {
   display: grid;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 14px;
 }
 
-.location-card {
-  display: flex;
-  width: 100%;
-  gap: 11px;
-  padding: 13px;
+.restaurant-card {
+  padding: 16px;
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface);
   color: var(--color-text);
-  text-align: left;
-  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 
-.location-card:hover,
-.location-card.selected {
+.restaurant-card:hover,
+.restaurant-card.selected {
   border-color: var(--color-primary);
 }
 
-.location-card-icon {
-  flex: 0 0 auto;
+.restaurant-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  margin-bottom: 6px;
 }
 
-.location-card-content {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
+.restaurant-card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--color-text);
 }
 
-.location-card-content strong {
-  overflow-wrap: anywhere;
+.restaurant-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.location-address,
-.no-coordinate {
+.restaurant-address {
+  margin: 0 0 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.restaurant-desc {
+  margin: 0 0 12px;
   color: var(--color-text-muted);
   font-size: 13px;
   line-height: 1.5;
+  cursor: pointer;
 }
 
-.no-coordinate {
-  color: #a16207;
+.restaurant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+}
+
+.action-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-pill-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.action-pill-btn.map-link {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.action-pill-btn.map-link:hover {
+  background: #dbeafe;
+}
+
+.action-pill-btn.bookmark-action-btn.active {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #ef4444;
 }
 
 .empty-state {
@@ -605,11 +745,57 @@ onBeforeUnmount(() => {
   color: var(--color-text);
 }
 
+:deep(.custom-clean-marker) {
+  background: transparent;
+  border: none;
+}
+
+.map-pin-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.map-pin-dot:hover {
+  transform: scale(1.15);
+  background: #f8fafc;
+}
+
+:deep(.map-text-label) {
+  background: transparent;
+  border: none;
+  color: #0369a1;
+  font-weight: bold;
+  font-size: 13px;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+:deep(.map-text-bien-dong) {
+  background: transparent;
+  border: none;
+  color: #0284c7;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
 @media (max-width: 1023px) {
   .map-layout {
     grid-template-columns: 1fr;
   }
-
   .location-panel {
     max-height: none;
   }
@@ -619,22 +805,18 @@ onBeforeUnmount(() => {
   .map-page {
     padding: 28px 0 44px;
   }
-
   .filter-panel {
     align-items: stretch;
     flex-direction: column;
   }
-
   .map-container {
     height: 440px;
   }
-
   .location-panel {
     padding: 14px;
   }
 }
 
-/* Thanh tìm kiếm địa điểm */
 .search-panel {
   width: 100%;
   min-width: 0;
@@ -695,10 +877,6 @@ onBeforeUnmount(() => {
   box-shadow: none;
 }
 
-.search-form input::-webkit-search-cancel-button {
-  cursor: pointer;
-}
-
 .search-button {
   flex-shrink: 0;
   height: 38px;
@@ -721,16 +899,4 @@ onBeforeUnmount(() => {
 .search-button:active {
   transform: scale(0.98);
 }
-
-@media (max-width: 639px) {
-  .search-form {
-    gap: 8px;
-    padding-left: 12px;
-  }
-
-  .search-button {
-    padding: 0 14px;
-  }
-}
-
 </style>

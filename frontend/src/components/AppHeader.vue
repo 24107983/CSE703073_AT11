@@ -1,25 +1,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { RouterLink } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
+
 const router = useRouter()
-
 const user = ref(null)
-
 const isDark = ref(false)
 
 const applyTheme = (dark) => {
   isDark.value = dark
-
-  document.documentElement.setAttribute(
-    'data-theme',
-    dark ? 'dark' : 'light'
-  )
-
-  localStorage.setItem(
-    'app-theme',
-    dark ? 'dark' : 'light'
-  )
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+  localStorage.setItem('app-theme', dark ? 'dark' : 'light')
 }
 
 const toggleTheme = () => {
@@ -28,50 +18,31 @@ const toggleTheme = () => {
 
 const loadUser = () => {
   const savedUser = localStorage.getItem('auth_user')
-
-  user.value = savedUser
-    ? JSON.parse(savedUser)
-    : null
+  user.value = savedUser ? JSON.parse(savedUser) : null
 }
 
 const handleAuthChange = () => {
   loadUser()
 }
 
-const handleLogout = async () => {
-  try {
-    const response = await fetch(
-      'http://10.139.87.32:8000/api/auth/logout',
-      {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json'
-        },
-        credentials: 'include'
-      }
-    )
+const handleLogout = () => {
+  fetch('http://10.139.87.32:8000/api/auth/logout', {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    credentials: 'include'
+  }).catch(error => {
+    console.warn('Lỗi kết nối server khi đăng xuất:', error)
+  })
 
-    if (!response.ok && response.status !== 204) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-  } catch (error) {
-    console.error(error)
-  } finally {
-    localStorage.removeItem('auth_user')
-
-    window.dispatchEvent(
-      new Event('auth-changed')
-    )
-
-    router.push('/dang-nhap')
-  }
+  localStorage.removeItem('auth_user')
+  window.dispatchEvent(new Event('auth-changed'))
+  router.push('/dang-nhap')
 }
-const mobileMenuOpen = ref(false)
 
+const mobileMenuOpen = ref(false)
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
 }
-
 const closeMobileMenu = () => {
   mobileMenuOpen.value = false
 }
@@ -80,132 +51,63 @@ onMounted(() => {
   loadUser()
   const savedTheme = localStorage.getItem('app-theme')
   applyTheme(savedTheme === 'dark')
-  window.addEventListener(
-    'auth-changed',
-    handleAuthChange
-  )
+  window.addEventListener('auth-changed', handleAuthChange)
 })
 
 onUnmounted(() => {
-  window.removeEventListener(
-    'auth-changed',
-    handleAuthChange
-  )
+  window.removeEventListener('auth-changed', handleAuthChange)
 })
 </script>
 
 <template>
   <header class="site-header">
-
     <div class="container header-inner">
 
       <!-- LOGO -->
-      <RouterLink
-        to="/"
-        class="logo"
-        @click="closeMobileMenu"
-      >
+      <RouterLink to="/" class="logo" @click="closeMobileMenu">
         AT-11
       </RouterLink>
 
-
       <!-- DESKTOP NAV -->
       <nav class="main-nav">
+        <RouterLink to="/" @click="closeMobileMenu">Trang chủ</RouterLink>
+        <RouterLink to="/mon-an" @click="closeMobileMenu">Món ăn</RouterLink>
+        <RouterLink to="/ban-do" @click="closeMobileMenu">Bản đồ</RouterLink>
+        <RouterLink to="/hanh-trinh" @click="closeMobileMenu">Hành trình ẩm thực</RouterLink>
+        <RouterLink to="/bai-viet" @click="closeMobileMenu">Bài viết</RouterLink>
 
-        <RouterLink
-          to="/"
-          @click="closeMobileMenu"
-        >
-          Trang chủ
-        </RouterLink>
-
-        <RouterLink
-          to="/mon-an"
-          @click="closeMobileMenu"
-        >
-          Món ăn
-        </RouterLink>
-
-        <RouterLink
-          to="/ban-do"
-          @click="closeMobileMenu"
-        >
-          Bản đồ
-        </RouterLink>
-
-        <RouterLink
-          to="/hanh-trinh"
-          @click="closeMobileMenu"
-        >
-          Hành trình ẩm thực
-        </RouterLink>
-
-        <!-- Menu Quản trị chỉ hiện khi là Admin -->
-        <RouterLink
-          v-if="user?.vai_tro === 'quan_tri_vien'"
-          to="/admin"
-          @click="closeMobileMenu"
-        >
+        <RouterLink v-if="user?.vai_tro === 'quan_tri_vien'" to="/admin" @click="closeMobileMenu">
           Quản trị
         </RouterLink>
 
-        <!-- Hồ sơ cá nhân: Chỉ hiện khi ĐÃ ĐĂNG NHẬP và KHÔNG PHẢI là Admin/Cộng tác viên -->
-        <RouterLink
-          v-if="user && user.vai_tro !== 'quan_tri_vien' && user.vai_tro !== 'cong_tac_vien'"
-          to="/ho-so"
-          @click="closeMobileMenu"
-        >
+        <RouterLink v-if="user && user.vai_tro !== 'quan_tri_vien' && user.vai_tro !== 'cong_tac_vien'" to="/ho-so" @click="closeMobileMenu">
           Hồ sơ cá nhân
         </RouterLink>
-
       </nav>
 
-
       <!-- THEME TOGGLE -->
-      <button
-        type="button"
-        class="theme-toggle"
-        :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
-        @click="toggleTheme"
-      >
-        {{ isDark ? '☀️ Sáng' : '🌙 Tối' }}
-      </button>
-
-
-      <!-- DESKTOP AUTH -->
-      <div
-        v-if="!user"
-        class="auth-actions desktop-auth"
-      >
-        <RouterLink
-          to="/dang-ky"
-          class="auth-link"
-        >
-          Đăng ký
-        </RouterLink>
-
-        <RouterLink
-          to="/dang-nhap"
-          class="auth-link"
-        >
-          Đăng nhập
-        </RouterLink>
-      </div>
-
-
-      <div
-        v-else
-        class="auth-actions desktop-auth"
-      >
+      <div class="header-controls">
         <button
           type="button"
-          class="auth-link logout-button"
-          @click="handleLogout"
+          class="theme-toggle"
+          :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+          @click="toggleTheme"
         >
-          Đăng xuất
+          {{ isDark ? '☀️ Sáng' : '🌙 Tối' }}
         </button>
       </div>
 
+      <!-- DESKTOP AUTH -->
+      <div v-if="!user" class="auth-actions desktop-auth">
+        <RouterLink to="/dang-ky" class="auth-link">Đăng ký</RouterLink>
+        <RouterLink to="/dang-nhap" class="auth-link">Đăng nhập</RouterLink>
+      </div>
+
+      <div v-else class="auth-actions desktop-auth">
+        <button type="button" class="auth-link logout-button" @click="handleLogout">
+          Đăng xuất
+        </button>
+      </div>
 
       <!-- MOBILE BUTTON -->
       <button
@@ -222,107 +124,39 @@ onUnmounted(() => {
 
     </div>
 
-
     <!-- MOBILE MENU -->
-    <div
-      v-if="mobileMenuOpen"
-      class="mobile-menu"
-    >
-
+    <div v-if="mobileMenuOpen" class="mobile-menu">
       <nav class="mobile-nav">
+        <RouterLink to="/" @click="closeMobileMenu">Trang chủ</RouterLink>
+        <RouterLink to="/mon-an" @click="closeMobileMenu">Món ăn</RouterLink>
+        <RouterLink to="/ban-do" @click="closeMobileMenu">Bản đồ</RouterLink>
+        <RouterLink to="/hanh-trinh" @click="closeMobileMenu">Hành trình ẩm thực</RouterLink>
+        <RouterLink to="/bai-viet" @click="closeMobileMenu">Bài viết</RouterLink>
 
-        <RouterLink
-          to="/"
-          @click="closeMobileMenu"
-        >
-          Trang chủ
-        </RouterLink>
-
-        <RouterLink
-          to="/mon-an"
-          @click="closeMobileMenu"
-        >
-          Món ăn
-        </RouterLink>
-
-        <RouterLink
-          to="/ban-do"
-          @click="closeMobileMenu"
-        >
-          Bản đồ
-        </RouterLink>
-
-        <RouterLink
-          to="/hanh-trinh"
-          @click="closeMobileMenu"
-        >
-          Hành trình ẩm thực
-        </RouterLink>
-
-        <RouterLink
-          v-if="user?.vai_tro === 'quan_tri_vien'"
-          to="/admin"
-          @click="closeMobileMenu"
-        >
+        <RouterLink v-if="user?.vai_tro === 'quan_tri_vien'" to="/admin" @click="closeMobileMenu">
           Quản trị
         </RouterLink>
 
-        <RouterLink
-          v-if="user && user.vai_tro !== 'quan_tri_vien' && user.vai_tro !== 'cong_tac_vien'"
-          to="/ho-so"
-          @click="closeMobileMenu"
-        >
+        <RouterLink v-if="user && user.vai_tro !== 'quan_tri_vien' && user.vai_tro !== 'cong_tac_vien'" to="/ho-so" @click="closeMobileMenu">
           Hồ sơ cá nhân
         </RouterLink>
 
-        <RouterLink
-          to="/hanh-trinh"
-          class="mobile-booking-link"
-          @click="closeMobileMenu"
-        >
+        <RouterLink to="/hanh-trinh" class="mobile-booking-link" @click="closeMobileMenu">
           Đặt chỗ
         </RouterLink>
-
       </nav>
 
-
-      <div
-        v-if="!user"
-        class="mobile-auth"
-      >
-        <RouterLink
-          to="/dang-ky"
-          class="mobile-auth-link"
-          @click="closeMobileMenu"
-        >
-          Đăng ký
-        </RouterLink>
-
-        <RouterLink
-          to="/dang-nhap"
-          class="mobile-auth-link mobile-login"
-          @click="closeMobileMenu"
-        >
-          Đăng nhập
-        </RouterLink>
+      <div v-if="!user" class="mobile-auth">
+        <RouterLink to="/dang-ky" class="mobile-auth-link" @click="closeMobileMenu">Đăng ký</RouterLink>
+        <RouterLink to="/dang-nhap" class="mobile-auth-link mobile-login" @click="closeMobileMenu">Đăng nhập</RouterLink>
       </div>
 
-
-      <div
-        v-else
-        class="mobile-auth"
-      >
-        <button
-          type="button"
-          class="mobile-auth-link mobile-login"
-          @click="handleLogout"
-        >
+      <div v-else class="mobile-auth">
+        <button type="button" class="mobile-auth-link mobile-login" @click="handleLogout">
           Đăng xuất
         </button>
       </div>
-
     </div>
-
   </header>
 </template>
 <style scoped>
@@ -390,7 +224,21 @@ onUnmounted(() => {
 .main-nav a.router-link-active {
   color: var(--color-primary);
 }
-
+.lang-toggle-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lang-toggle-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 
 /* AUTH */
 
