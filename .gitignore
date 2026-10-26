@@ -20,6 +20,7 @@ __pycache__/
 .env.*
 !.env.example
 *.pem
+!backend/ca.pem
 *.p12
 auth.json
 
