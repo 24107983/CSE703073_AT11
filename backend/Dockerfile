@@ -1,9 +1,10 @@
-
 FROM php:8.3-cli-alpine
 
-RUN apk add --no-cache git unzip curl icu-dev \
+RUN apk add --no-cache icu-libs \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev \
+    && apk add --no-cache git unzip curl \
     && docker-php-ext-install pdo_mysql intl \
-    && apk del icu-dev
+    && apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
