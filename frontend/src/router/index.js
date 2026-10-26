@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AdminView from '../views/AdminView.vue'
 import ForbiddenView from '../views/ForbiddenView.vue'
+import ArticlesView from '../views/ArticlesView.vue'
+import ArticleDetailView from '../views/ArticleDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -72,6 +74,16 @@ const router = createRouter({
       name: 'dang-ky',
       component: () => import('../views/RegisterView.vue')
     },
+    {
+      path: '/bai-viet',
+      name: 'bai-viet',
+      component: ArticlesView
+    },
+    {
+  path: '/bai-viet/:id',
+  name: 'bai-viet-chi-tiet',
+  component: ArticleDetailView
+},
     {
       path: '/403',
       name: 'forbidden',

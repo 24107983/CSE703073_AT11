@@ -7,14 +7,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://beginning-turns-destinations-clear.trycloudflare.com',
+        target: 'https://dominant-enter-locked-trucks.trycloudflare.com',
         changeOrigin: true,
-        secure: true
+        secure: false
       }
     }
-  },
-  preview: {
-    host: '0.0.0.0',
-    allowedHosts: ['cse703073-at11.onrender.com']
   }
 })
