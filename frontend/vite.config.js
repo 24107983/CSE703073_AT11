@@ -7,13 +7,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://hardly-angeles-ears-rebecca.trycloudflare.com',
+        target: 'https://beginning-turns-destinations-clear.trycloudflare.com',
         changeOrigin: true,
-        secure: false
+        secure: true
       }
     }
   },
   preview: {
+    host: '0.0.0.0',
     allowedHosts: ['cse703073-at11.onrender.com']
   }
 })

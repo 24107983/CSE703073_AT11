@@ -12,6 +12,7 @@ import comTamImage from '../assets/images/dishes/com-tam.webp'
 import banhXeoImage from '../assets/images/dishes/banh-xeo.jpg'
 import bunCaImage from '../assets/images/dishes/bun-ca-chau-doc.jpg'
 import caoLauImage from '../assets/images/dishes/cao-lau-hoi-an.jpg'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const searchKeyword = ref('')
 const selectedRegion = ref('')
 const selectedProvince = ref('')
@@ -76,7 +77,7 @@ const fetchDishes = async () => {
   errorMessage.value = ''
 
   try {
-    const firstResponse = await fetch('/api/mon-an?page=1&per_page=100', {
+    const firstResponse = await fetch(`${API_BASE_URL}/api/mon-an?page=1&per_page=100`, {
       headers: { Accept: 'application/json' }
     })
 
@@ -92,7 +93,7 @@ const fetchDishes = async () => {
     if (pages > 1) {
       const responses = await Promise.all(
         Array.from({ length: pages - 1 }, (_, index) =>
-          fetch(`/api/mon-an?page=${index + 2}&per_page=100`, {
+          fetch(`${API_BASE_URL}/api/mon-an?page=${index + 2}&per_page=100`, {
             headers: { Accept: 'application/json' }
           })
         )
