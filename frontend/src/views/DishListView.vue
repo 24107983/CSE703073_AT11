@@ -117,20 +117,27 @@ const fetchDishes = async () => {
 
 // Ánh xạ ảnh từ assets cho 10 món đầu tiên
 const getDishImage = (dish) => {
-  const id = dish?.mon_an_id
-  const imageMap = {
-    1: phoHaNoiImage,
-    2: bunChaImage,
-    3: banhDaCuaImage,
-    4: banhCuonImage,
-    5: bunBoHueImage,
-    6: miQuangImage,
-    7: comTamImage,
-    8: banhXeoImage,
-    9: bunCaImage,
-    10: caoLauImage
-  }
-  return imageMap[id] || null
+  const name = (dish?.ten_mon || '')
+    .normalize('NFC')
+    .trim()
+    .toLocaleLowerCase('vi')
+
+  const imageMap = [
+    { keywords: ['phở bò', 'phở hà nội'], image: phoHaNoiImage },
+    { keywords: ['bún chả'], image: bunChaImage },
+    { keywords: ['bánh đa cua'], image: banhDaCuaImage },
+    { keywords: ['bánh cuốn'], image: banhCuonImage },
+    { keywords: ['bún bò huế'], image: bunBoHueImage },
+    { keywords: ['mì quảng'], image: miQuangImage },
+    { keywords: ['cơm tấm'], image: comTamImage },
+    { keywords: ['bánh xèo'], image: banhXeoImage },
+    { keywords: ['cao lầu'], image: caoLauImage },
+    { keywords: ['bún cá châu đốc'], image: bunCaImage }
+  ]
+
+  return imageMap.find(item =>
+    item.keywords.some(keyword => name.includes(keyword))
+  )?.image || null
 }
 
 // Lọc danh sách theo từ khóa và vùng miền/tỉnh thành
@@ -317,8 +324,8 @@ onMounted(fetchDishes)
             class="dish-card"
             :class="{ 'featured-card': currentPage === 1 }"
           >
-            <!-- Khung hình ảnh chỉ xuất hiện ở Trang 1 -->
-            <div v-if="currentPage === 1" class="dish-card-image-wrap">
+              <!-- Khung hình ảnh hiển thị ở tất cả các trang -->
+              <div class="dish-card-image-wrap">
               <img
                 v-if="getDishImage(dish)"
                 :src="getDishImage(dish)"

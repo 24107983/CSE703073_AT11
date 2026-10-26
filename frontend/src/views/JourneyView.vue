@@ -13,6 +13,8 @@ import journey8Image from '../assets/images/journeys/journey-8.jpg'
 import journey9Image from '../assets/images/journeys/journey-9.jpg'
 import journey10Image from '../assets/images/journeys/journey-10.jpg'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+
 const journeys = ref([])
 
 const loading = ref(false)
@@ -86,14 +88,14 @@ const getJourneyImage = (id) => {
    FETCH JOURNEYS FROM V3
 ========================================================= */
 
+
 const fetchJourneys = async () => {
   loading.value = true
-
   errorMessage.value = ''
 
   try {
     const response = await fetch(
-      `/api/hanh-trinh-am-thuc?page=${currentPage.value}`,
+      `${API_BASE_URL}/api/hanh-trinh-am-thuc?page=${currentPage.value}`,
       {
         headers: {
           Accept: 'application/json'
@@ -107,29 +109,47 @@ const fetchJourneys = async () => {
 
     const result = await response.json()
 
-    const pagination = result.data
+    // Hỗ trợ cả response.data.data và response.data là mảng
+    const payload = result?.data ?? result
+    const pagination = Array.isArray(payload)
+      ? { data: payload }
+      : payload
 
-    journeys.value = pagination.data.map((journey) => ({
+    const items = Array.isArray(pagination?.data)
+      ? pagination.data
+      : Array.isArray(pagination?.data?.data)
+        ? pagination.data.data
+        : null
+
+    if (!items) {
+      console.error('Cấu trúc API hành trình không hợp lệ:', result)
+      throw new Error('API không trả về danh sách hành trình đúng định dạng.')
+    }
+
+    journeys.value = items.map((journey) => ({
       ...journey,
       image: getJourneyImage(journey.hanh_trinh_id)
     }))
 
-    currentPage.value = pagination.current_page
+    currentPage.value = Number(
+      pagination.current_page ?? pagination.currentPage ?? currentPage.value
+    )
 
-    lastPage.value = pagination.last_page
+    lastPage.value = Number(
+      pagination.last_page ?? pagination.lastPage ?? 1
+    )
 
-    totalJourneys.value = pagination.total
-
+    totalJourneys.value = Number(
+      pagination.total ?? items.length
+    )
   } catch (error) {
-    console.error(error)
-
-    errorMessage.value =
-      'Không thể tải danh sách hành trình.'
-
+    console.error('Lỗi tải danh sách hành trình:', error)
+    errorMessage.value = `Không thể tải danh sách hành trình. ${error.message}`
   } finally {
     loading.value = false
   }
 }
+
 
 
 /* =========================================================
