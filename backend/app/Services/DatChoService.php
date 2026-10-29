@@ -26,7 +26,14 @@ class DatChoService
 
             if (!$lich) {
                 throw new RuntimeException('Không tìm thấy lịch khả dụng.');
-            }
+}
+
+// Không cho giữ chỗ với lịch đã qua ngày phục vụ.
+            if ($lich->ngay_phuc_vu->lt(today())) {
+                throw new RuntimeException(
+        'Không thể giữ chỗ cho lịch đã qua ngày phục vụ.'
+    );
+}
 
             $soChoConLai = $lich->so_cho_total
                 - $lich->so_cho_held
