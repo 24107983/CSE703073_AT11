@@ -59,8 +59,6 @@ async function fetchDish() {
     }
 
     dish.value = result.data
-
-    // Khởi tạo trạng thái bookmark và load đánh giá theo ID món
     loadInteractiveData(route.params.id)
   } catch (error) {
     if (version !== requestVersion) return
@@ -96,7 +94,22 @@ async function fetchRecommendations() {
       ?? result?.data
       ?? []
 
-    recommendations.value = Array.isArray(rows) ? rows : []
+    const validRows = Array.isArray(rows) ? rows : []
+
+    recommendations.value = validRows.filter(item => {
+      if (!item) return false
+      const name = typeof item === 'string' ? item : (item.name || item.ten_mon || '')
+      const score = item?.score ?? item?.diem_goi_y ?? item?.similarity ?? 0
+
+      if (
+        name.toLowerCase().includes('gợi ý mặc định') ||
+        name.toLowerCase().includes('default') ||
+        Number(score) === 0
+      ) {
+        return false
+      }
+      return true
+    })
   } catch (error) {
     console.error('Lỗi tải gợi ý món ăn:', error)
     recommendationError.value = 'Chưa thể tải gợi ý món ăn. Vui lòng thử lại sau.'
@@ -105,7 +118,6 @@ async function fetchRecommendations() {
   }
 }
 
-// Xử lý lưu và tải dữ liệu tương tác từ localStorage
 function loadInteractiveData(id) {
   const bookmarks = JSON.parse(localStorage.getItem('bookmarked_dishes') || '{}')
   isBookmarked.value = !!bookmarks[id]
@@ -152,7 +164,6 @@ function submitReview() {
   allReviews[route.params.id] = reviews.value
   localStorage.setItem('dish_reviews', JSON.stringify(allReviews))
 
-  // Reset form
   newReviewName.value = ''
   newReviewComment.value = ''
   newReviewRating.value = 5
@@ -164,22 +175,51 @@ const averageRating = computed(() => {
   return (sum / reviews.value.length).toFixed(1)
 })
 
-// Ánh xạ ảnh cho 10 món đầu tiên
-const getDishImage = (dishData) => {
-  const id = dishData?.mon_an_id
-  const imageMap = {
-    1: phoHaNoiImage,
-    2: bunChaImage,
-    3: banhDaCuaImage,
-    4: banhCuonImage,
-    5: bunBoHueImage,
-    6: miQuangImage,
-    7: comTamImage,
-    8: banhXeoImage,
-    9: bunCaImage,
-    10: caoLauImage
+const getDishImage = (input) => {
+  // Trường hợp input là đối tượng món ăn hoặc ID (dùng cho trang chi tiết chính)
+  if (typeof input === 'object' && input !== null) {
+    const id = input.mon_an_id ?? input.id
+    const imageMap = {
+      1: phoHaNoiImage,
+      2: bunChaImage,
+      3: banhDaCuaImage,
+      4: banhCuonImage,
+      5: bunBoHueImage,
+      6: miQuangImage,
+      7: comTamImage,
+      8: banhXeoImage,
+      9: bunCaImage,
+      10: caoLauImage
+    }
+    if (imageMap[id]) return imageMap[id]
+    
+    // Nếu có slug đi kèm trong object
+    if (input.slug) {
+      return getSlugImage(input.slug)
+    }
+    return null
   }
-  return imageMap[id] || null
+
+  // Trường hợp input là chuỗi slug trực tiếp (dùng cho danh sách gợi ý từ Python API)
+  if (typeof input === 'string') {
+    return getSlugImage(input)
+  }
+
+  return null
+}
+
+// Hàm phụ trợ load động ảnh từ thư mục assets theo slug
+function getSlugImage(slug) {
+  if (!slug) return ''
+  try {
+    return new URL(`../assets/images/dishes/${slug}.jpg`, import.meta.url).href
+  } catch (e) {
+    try {
+      return new URL(`../assets/images/dishes/${slug}.webp`, import.meta.url).href
+    } catch (err) {
+      return ''
+    }
+  }
 }
 
 function formatPrice(price) {
@@ -196,6 +236,7 @@ function recommendationId(item, index) {
 }
 
 function recommendationName(item) {
+  if (typeof item === 'string') return item
   return item?.ten_mon ?? item?.name ?? item?.mon_an?.ten_mon ?? 'Món ăn được đề xuất'
 }
 
@@ -222,6 +263,20 @@ function formatIngredientPivot(pivot) {
   return parts.join(' ')
 }
 
+// Hàm hỗ trợ chọn icon nguyên liệu sống động
+function getIngredientIcon(name) {
+  const lower = (name || '').toLowerCase()
+  if (lower.includes('cua')) return '🦀'
+  if (lower.includes('bánh đa') || lower.includes('bún') || lower.includes('mì')) return '🍜'
+  if (lower.includes('cà chua')) return '🍅'
+  if (lower.includes('tôm')) return '🦐'
+  if (lower.includes('chả') || lower.includes('thịt')) return '🥩'
+  if (lower.includes('rau') || lower.includes('lá')) return '🌿'
+  if (lower.includes('hành')) return '🧅'
+  return '🥗'
+}
+
+
 onMounted(() => {
   fetchDish()
   fetchRecommendations()
@@ -231,6 +286,7 @@ watch(() => route.params.id, () => {
   fetchDish()
   fetchRecommendations()
 })
+
 </script>
 
 <template>
@@ -273,10 +329,9 @@ watch(() => route.params.id, () => {
           <div class="dish-info">
             <div class="header-top-row">
               <span class="region-tag">
-                {{ locationText(dish.vung_mien?.ten_vung, 'Chưa cập nhật vùng miền') }}
+                📍 {{ locationText(dish.vung_mien?.ten_vung, 'Chưa cập nhật vùng miền') }}
               </span>
 
-              <!-- Nút tương tác Bookmark & Share -->
               <div class="action-buttons">
                 <button
                   type="button"
@@ -307,13 +362,13 @@ watch(() => route.params.id, () => {
               <div class="quick-rating">
                 <span class="star">⭐</span>
                 <strong>{{ averageRating }}</strong>
-                <span class="count">({{ reviews.size || reviews.length }} đánh giá)</span>
+                <span class="count">({{ reviews.length }} đánh giá)</span>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Toast thông báo khi sao chép link -->
+        <!-- Toast thông báo -->
         <transition name="fade">
           <div v-if="showShareToast" class="share-toast">
             ✨ Đã sao chép liên kết món ăn vào bộ nhớ tạm!
@@ -322,7 +377,7 @@ watch(() => route.params.id, () => {
 
         <!-- Địa điểm -->
         <section class="detail-section">
-          <h2>Địa điểm</h2>
+          <h2>Địa điểm thưởng thức</h2>
 
           <div class="info-grid">
             <div class="info-item">
@@ -358,17 +413,30 @@ watch(() => route.params.id, () => {
           </div>
         </RouterLink>
 
-        <!-- Nguyên liệu -->
-        <section class="detail-section">
-          <h2>Nguyên liệu</h2>
+        <!-- NGUYÊN LIỆU TẠO NÊN HƯƠNG VỊ -->
+        <section class="detail-section ingredients-section">
+          <div class="section-header-modern">
+            <span class="section-tag">Thành phần</span>
+            <h2>Nguyên liệu đặc trưng</h2>
+          </div>
+
           <template v-if="Array.isArray(dish.nguyen_lieu) && dish.nguyen_lieu.length > 0">
-            <div class="ingredient-chips">
-              <div v-for="(item, index) in dish.nguyen_lieu" :key="item.nguyen_lieu_id ?? index" class="ingredient-chip">
-                <span class="bullet">•</span>
-                <strong>{{ item.ten_nguyen_lieu || 'Nguyên liệu' }}</strong>
-                <span v-if="formatIngredientPivot(item.pivot)" class="sub-info">
-                  ({{ formatIngredientPivot(item.pivot) }})
-                </span>
+            <div class="ingredient-grid-modern">
+              <div
+                v-for="(item, index) in dish.nguyen_lieu"
+                :key="item.nguyen_lieu_id ?? index"
+                class="ingredient-card-modern"
+              >
+                <div class="ingredient-icon-box">
+                  {{ getIngredientIcon(item.ten_nguyen_lieu) }}
+                </div>
+                <div class="ingredient-details">
+                  <span class="ingredient-name">{{ item.ten_nguyen_lieu || 'Nguyên liệu' }}</span>
+                  <span v-if="formatIngredientPivot(item.pivot)" class="ingredient-quantity">
+                    {{ formatIngredientPivot(item.pivot) }}
+                  </span>
+                  <span v-else class="ingredient-quantity">Tươi sạch chuẩn vị</span>
+                </div>
               </div>
             </div>
           </template>
@@ -377,30 +445,53 @@ watch(() => route.params.id, () => {
           </p>
         </section>
 
-        <!-- Câu chuyện văn hóa -->
-        <section class="detail-section" v-if="Array.isArray(dish.cau_chuyen_van_hoa) && dish.cau_chuyen_van_hoa.length > 0">
-          <h2>Câu chuyện văn hóa</h2>
-          <div class="story-list">
-            <article v-for="(story, index) in dish.cau_chuyen_van_hoa" :key="index" class="story-item">
-              <h3 v-if="story.tieu_de">{{ story.tieu_de }}</h3>
-              <p>{{ story.noi_dung }}</p>
-            </article>
+        <!-- CÂU CHUYỆN VĂN HÓA -->
+        <section class="detail-section culture-section" v-if="Array.isArray(dish.cau_chuyen_van_hoa) && dish.cau_chuyen_van_hoa.length > 0">
+          <div class="story-container">
+            <div class="story-badge">
+              <span class="badge-icon">🏛️</span>
+              <span>Giai thoại & Hồn đất Việt</span>
+            </div>
+            
+            <div v-for="(story, index) in dish.cau_chuyen_van_hoa" :key="index" class="story-card-modern">
+              <h2 v-if="story.tieu_de" class="story-title">{{ story.tieu_de }}</h2>
+              <p class="story-content">{{ story.noi_dung }}</p>
+            </div>
           </div>
         </section>
 
-        <!-- Đánh giá & Bình luận (Interactive Reviews) -->
-        <section class="detail-section review-section">
-          <div class="review-header-flex">
-            <h2>Đánh giá & Cảm nhận</h2>
-            <div class="rating-badge">
-              <span>⭐</span>
-              <strong>{{ averageRating }}</strong> / 5.0
+        <!-- ĐÁNH GIÁ & CẢM NHẬN -->
+        <section class="detail-section review-section-modern">
+          <div class="section-header-flex">
+            <div>
+              <span class="section-tag">Cộng đồng</span>
+              <h2>Đánh giá & Cảm nhận</h2>
+            </div>
+          </div>
+
+          <!-- Rating Overview Bar -->
+          <div class="rating-overview-card">
+            <div class="rating-big-score">
+              <span class="score-number">{{ averageRating }}</span>
+              <div class="score-stars">⭐⭐⭐⭐⭐</div>
+              <span class="score-count">{{ reviews.length }} nhận xét từ thực khách</span>
+            </div>
+            <div class="rating-divider"></div>
+            <div class="rating-highlights">
+              <div class="highlight-item">
+                <span class="hl-icon">🍜</span>
+                <span class="hl-text">Hương vị chuẩn bản địa</span>
+              </div>
+              <div class="highlight-item">
+                <span class="hl-icon">❤️</span>
+                <span class="hl-text">Được 98% thực khách yêu thích</span>
+              </div>
             </div>
           </div>
 
           <!-- Form viết đánh giá mới -->
-          <div class="review-form-card">
-            <h3>Chia sẻ cảm nhận của bạn</h3>
+          <div class="review-form-modern">
+            <h3>Chia sẻ trải nghiệm của bạn</h3>
             <form @submit.prevent="submitReview" class="review-form">
               <div class="form-row">
                 <div class="form-group">
@@ -414,46 +505,49 @@ watch(() => route.params.id, () => {
                   />
                 </div>
                 <div class="form-group">
-                  <label for="reviewer-rating">Đánh giá sao</label>
+                  <label for="reviewer-rating">Mức độ hài lòng</label>
                   <select id="reviewer-rating" v-model="newReviewRating">
-                    <option :value="5">⭐⭐⭐⭐⭐ (5/5 - Tuyệt vời)</option>
-                    <option :value="4">⭐⭐⭐⭐ (4/5 - Rất ngon)</option>
-                    <option :value="3">⭐⭐⭐ (3/5 - Bình thường)</option>
-                    <option :value="2">⭐⭐ (2/5 - Tạm được)</option>
-                    <option :value="1">⭐ (1/5 - Không hợp khẩu vị)</option>
+                    <option :value="5">⭐⭐⭐⭐⭐ 5/5 - Rất tuyệt vời</option>
+                    <option :value="4">⭐⭐⭐⭐ 4/5 - Rất ngon miệng</option>
+                    <option :value="3">⭐⭐⭐ 3/5 - Chuẩn vị vừa miệng</option>
+                    <option :value="2">⭐⭐ 2/5 - Tạm ổn</option>
+                    <option :value="1">⭐ 1/5 - Chưa hợp khẩu vị</option>
                   </select>
                 </div>
               </div>
               <div class="form-group">
-                <label for="reviewer-comment">Nội dung bình luận</label>
+                <label for="reviewer-comment">Lời nhận xét</label>
                 <textarea
                   id="reviewer-comment"
                   v-model="newReviewComment"
                   rows="3"
-                  placeholder="Hãy chia sẻ trải nghiệm thưởng thức món ăn này..."
+                  placeholder="Viết cảm nhận của bạn về hương vị, màu sắc hay không gian thưởng thức món ăn này..."
                   required
                 ></textarea>
               </div>
-              <button type="submit" class="submit-review-btn">Gửi đánh giá</button>
+              <button type="submit" class="submit-review-btn-modern">
+                <span>Gửi đánh giá</span>
+                <span class="btn-icon">✈️</span>
+              </button>
             </form>
           </div>
 
           <!-- Danh sách đánh giá -->
-          <div class="reviews-list" v-if="reviews.length > 0">
-            <div v-for="review in reviews" :key="review.id" class="review-card">
-              <div class="review-card-top">
-                <div class="reviewer-info">
-                  <div class="avatar-circle">{{ review.name.charAt(0).toUpperCase() }}</div>
+          <div class="reviews-list-modern" v-if="reviews.length > 0">
+            <div v-for="review in reviews" :key="review.id" class="review-card-modern">
+              <div class="review-card-header">
+                <div class="reviewer-profile">
+                  <div class="avatar-gradient">{{ review.name.charAt(0).toUpperCase() }}</div>
                   <div>
-                    <strong>{{ review.name }}</strong>
-                    <span class="review-date">{{ review.date }}</span>
+                    <strong class="reviewer-name">{{ review.name }}</strong>
+                    <span class="review-date">Đã trải nghiệm • {{ review.date }}</span>
                   </div>
                 </div>
-                <div class="review-stars">
+                <div class="stars-badge">
                   {{ '⭐'.repeat(review.rating) }}
                 </div>
               </div>
-              <p class="review-comment">{{ review.comment }}</p>
+              <p class="review-comment-text">{{ review.comment }}</p>
             </div>
           </div>
         </section>
@@ -462,7 +556,7 @@ watch(() => route.params.id, () => {
         <section class="detail-section recommendation-section">
           <h2>Món ăn có thể bạn sẽ thích</h2>
           <p class="placeholder-text recommendation-note">
-            Các gợi ý được cung cấp bởi hệ thống đề xuất món ăn.
+            Các gợi ý được cung cấp bởi hệ thống đề xuất món ăn thông minh.
           </p>
 
           <p v-if="recommendationLoading" class="placeholder-text" role="status">
@@ -478,20 +572,28 @@ watch(() => route.params.id, () => {
           </p>
 
           <div v-else class="recommendation-grid">
-            <article
+            <RouterLink
               v-for="(item, index) in recommendations"
               :key="recommendationId(item, index)"
+              :to="`/mon-an/${recommendationId(item, index)}`"
               class="recommendation-card"
             >
-              <div class="recommendation-icon" aria-hidden="true">🍜</div>
+              <!-- 👇 THAY THẺ DIV ICON BÁT MÌ BẰNG THẺ ẢNH NÀY -->
+                <img 
+  :src="getDishImage(item)" 
+  :alt="recommendationName(item)" 
+  class="recommendation-thumb"
+  style="width: 64px; height: 64px; object-fit: cover; border-radius: 8px;"
+/>
+              
               <div class="recommendation-content">
                 <h3>{{ recommendationName(item) }}</h3>
                 <p v-if="recommendationScore(item) !== null" class="recommendation-score">
-                  Điểm gợi ý:
+                  Điểm tương đồng:
                   <strong>{{ recommendationScore(item) }}</strong>
                 </p>
               </div>
-            </article>
+            </RouterLink>
           </div>
         </section>
       </template>
@@ -689,6 +791,16 @@ watch(() => route.params.id, () => {
   letter-spacing: -0.01em;
 }
 
+.section-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary, #2563eb);
+  margin-bottom: 4px;
+}
+
 .info-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -803,220 +915,492 @@ watch(() => route.params.id, () => {
   transform: translateX(4px);
 }
 
-/* Ingredients */
-.ingredient-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+/* --- DESIGN CẢI TIẾN: NGUYÊN LIỆU --- */
+.section-header-modern {
+  margin-bottom: var(--space-6);
 }
 
-.ingredient-chip {
-  display: inline-flex;
+.section-header-modern h2 {
+  margin: 0;
+}
+
+.ingredient-grid-modern {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.ingredient-card-modern {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  color: var(--color-text);
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  transition: all 0.2s ease;
   box-shadow: 0 2px 6px rgba(0,0,0,0.02);
 }
 
-.ingredient-chip .bullet {
-  color: var(--color-primary);
-  font-weight: bold;
+.ingredient-card-modern:hover {
+  border-color: var(--color-primary, #2563eb);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.05);
 }
 
-/* Story */
-.story-list {
-  display: grid;
-  gap: var(--space-6);
+.ingredient-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
-.story-item {
-  padding: var(--space-6);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+.ingredient-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.story-item h3 {
-  margin: 0 0 var(--space-3);
-  font-size: 18px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-}
-
-.story-item p {
-  margin: 0;
-  color: var(--color-text-muted);
-  line-height: 1.8;
+.ingredient-name {
+  font-weight: 600;
   font-size: 15px;
+  color: var(--color-text, #0f172a);
 }
 
-/* Review Section */
-.review-header-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-5);
+.ingredient-quantity {
+  font-size: 13px;
+  color: var(--color-text-muted, #64748b);
 }
 
-.rating-badge {
+/* --- DESIGN CẢI TIẾN: CÂU CHUYỆN VĂN HÓA --- */
+.culture-section {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.6) 0%, rgba(255, 255, 255, 1) 100%);
+  border-radius: var(--radius-lg, 16px);
+  padding: var(--space-8);
+  margin-top: var(--space-6);
+}
+
+.story-container {
   display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.story-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 14px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 13px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.story-card-modern {
+  position: relative;
+  padding: 24px 28px;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-left: 4px solid var(--color-primary, #ea580c);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+
+.story-title {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text, #0f172a);
+  line-height: 1.3;
+}
+
+.story-content {
+  margin: 0;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+/* --- DESIGN CẢI TIẾN: ĐÁNH GIÁ & CẢM NHẬN --- */
+.review-section-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.rating-overview-card {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 24px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+}
+
+.rating-big-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 140px;
+}
+
+.score-number {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--color-text, #0f172a);
+  line-height: 1;
+}
+
+.score-stars {
+  margin: 6px 0;
   font-size: 14px;
 }
 
-.rating-badge strong {
-  color: var(--color-primary);
+.score-count {
+  font-size: 12px;
+  color: var(--color-text-muted, #64748b);
+}
+
+.rating-divider {
+  width: 1px;
+  height: 60px;
+  background: var(--color-border, #cbd5e1);
+}
+
+.rating-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.highlight-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.hl-icon {
+  font-size: 16px;
+}
+
+.review-form-modern {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+
+.review-form-modern h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
   font-weight: 700;
 }
 
-.review-form-card {
-  padding: var(--space-6);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-6);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+.submit-review-btn-modern {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--color-primary, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  justify-self: flex-start;
 }
 
-.review-form-card h3 {
-  margin: 0 0 var(--space-4);
+.submit-review-btn-modern:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.reviews-list-modern {
+  display: grid;
+  gap: 16px;
+}
+
+.review-card-modern {
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+}
+
+.review-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.reviewer-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar-gradient {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.reviewer-name {
+  display: block;
+  font-size: 15px;
+  color: var(--color-text, #0f172a);
+}
+
+.review-date {
+  font-size: 12px;
+  color: var(--color-text-muted, #64748b);
+}
+
+.stars-badge {
+  padding: 4px 10px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.review-comment-text {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.6;
+}
+/* --- SỬA LỖI GIAO DIỆN FORM ĐÁNH GIÁ --- */
+.review-form-modern {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  margin-bottom: var(--space-6);
+}
+
+.review-form-modern h3 {
+  margin: 0 0 16px;
   font-size: 16px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
+  font-weight: 700;
+  color: var(--color-text, #0f172a);
 }
 
 .review-form {
-  display: grid;
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Khoảng cách giữa các hàng */
 }
 
 .form-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
+  gap: 16px;
+  width: 100%;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
 }
 
 .form-group label {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text);
+  font-weight: 600;
+  color: var(--color-text, #0f172a);
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-background);
-  color: var(--color-text);
+  padding: 10px 14px;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-background, #f8fafc);
+  color: var(--color-text, #0f172a);
   font-size: 14px;
   outline: none;
+  box-sizing: border-box; /* Đảm bảo không bị tràn viền */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-primary, #2563eb);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.submit-review-btn {
-  padding: 10px 20px;
-  background: var(--color-primary);
+.submit-review-btn-modern {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--color-primary, #2563eb);
   color: #ffffff;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md, 8px);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s ease;
-  justify-self: flex-start;
+  transition: all 0.2s ease;
+  margin-top: 4px;
+  width: fit-content;
 }
 
-.submit-review-btn:hover {
+.submit-review-btn-modern:hover {
   opacity: 0.9;
+  transform: translateY(-1px);
 }
 
-.reviews-list {
-  display: grid;
-  gap: var(--space-4);
+@media (max-width: 639px) {
+  .form-row {
+    grid-template-columns: 1fr; /* Responsive trên màn hình nhỏ */
+  }
+}
+/* --- TÙY CHỈNH CHUNG CHO CẢ 2 GIAO DIỆN SÁNG & TỐI --- */
+
+.ingredient-card-modern,
+.review-form-modern,
+.review-card-modern,
+.rating-overview-card,
+.story-card-modern,
+.info-item {
+  background: var(--color-surface, #ffffff);
+  border-color: var(--color-border, #e2e8f0);
+  color: var(--color-text, #0f172a);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-.review-card {
-  padding: var(--space-5);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+/* 1. Phần Nguyên liệu */
+.ingredient-icon-box {
+  background: var(--color-background, #f1f5f9);
 }
 
-.review-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
+/* 2. Phần Câu chuyện văn hóa */
+.culture-section {
+  background: linear-gradient(180deg, var(--color-surface, #f8fafc) 0%, var(--color-background, #ffffff) 100%);
+  border-radius: var(--radius-lg, 16px);
+  padding: var(--space-8);
+  margin-top: var(--space-6);
+  border: 1px solid var(--color-border, #e2e8f0);
 }
 
-.reviewer-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.story-card-modern {
+  border-left: 4px solid var(--color-primary, #ea580c);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
-.avatar-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
+.story-title {
+  color: var(--color-text, #0f172a);
+}
+
+.story-content {
+  color: var(--color-text-muted, #64748b);
+}
+
+/* 3. Phần Tổng quan Đánh giá */
+.rating-overview-card {
+  background: var(--color-background, #f8fafc);
+}
+
+.score-number {
+  color: var(--color-text, #0f172a);
+}
+
+.rating-divider {
+  background: var(--color-border, #cbd5e1);
+}
+
+.highlight-item {
+  color: var(--color-text-muted, #64748b);
+}
+
+/* 4. Form Đánh giá & Ô nhập liệu (Input/Select/Textarea) */
+.form-group label {
+  color: var(--color-text, #0f172a);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-background, #f8fafc); /* Tự chuyển màu tối theo theme hệ thống */
+  color: var(--color-text, #0f172a);           /* Chữ tự động trắng khi ở dark mode */
   font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 
-.reviewer-info strong {
-  display: block;
-  font-size: 14px;
-  color: var(--color-text);
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--color-text-muted, #94a3b8);
 }
 
-.review-date {
-  font-size: 12px;
-  color: var(--color-text-muted);
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--color-primary, #2563eb);
+  background: var(--color-surface, #ffffff);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-.review-stars {
-  font-size: 12px;
-  letter-spacing: 2px;
+/* Màu chữ trong Select options cho dễ nhìn ở Dark mode */
+.form-group select option {
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text, #0f172a);
 }
 
-.review-comment {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 14px;
-  line-height: 1.6;
+/* 5. Thẻ Review của người dùng */
+.reviewer-name {
+  color: var(--color-text, #0f172a);
 }
 
+.review-comment-text {
+  color: var(--color-text-muted, #64748b);
+}
+
+.stars-badge {
+  background: var(--color-background, #fefce8);
+  border-color: var(--color-border, #fef08a);
+}
 /* Recommendations */
 .recommendation-note {
   margin-bottom: var(--space-6);
@@ -1039,6 +1423,8 @@ watch(() => route.params.id, () => {
   background: var(--color-surface);
   transition: border-color 0.2s ease, transform 0.2s ease;
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  text-decoration: none;
+  color: inherit;
 }
 
 .recommendation-card:hover {
@@ -1140,6 +1526,17 @@ watch(() => route.params.id, () => {
   .recommendation-grid,
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .rating-overview-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .rating-divider {
+    width: 100%;
+    height: 1px;
   }
 
   .journey-promo-card {

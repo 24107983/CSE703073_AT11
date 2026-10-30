@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://dominant-enter-locked-trucks.trycloudflare.com',
+        target: 'https://internationally-red-pipes-baseball.trycloudflare.com',
         changeOrigin: true,
         secure: false
       }

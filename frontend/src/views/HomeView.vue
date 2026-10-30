@@ -204,28 +204,6 @@ const handleSearch = () => {
 
           </div>
 
-          <div class="hero-region-path">
-
-            <div class="hero-region-item">
-              <span class="hero-region-dot"></span>
-              <span>Miền Bắc</span>
-            </div>
-
-            <span class="hero-region-line"></span>
-
-            <div class="hero-region-item">
-              <span class="hero-region-dot"></span>
-              <span>Miền Trung</span>
-            </div>
-
-            <span class="hero-region-line"></span>
-
-            <div class="hero-region-item">
-              <span class="hero-region-dot"></span>
-              <span>Miền Nam</span>
-            </div>
-
-          </div>
 
           <div class="hero-image-bottom">
 
@@ -939,7 +917,7 @@ const handleSearch = () => {
 
   border-radius: var(--radius-md);
 
-  background: var(--color-text);
+  background: var(--color-primary);
 
   color: white;
 
@@ -2351,7 +2329,7 @@ const handleSearch = () => {
 .dish-body h3 {
   margin: 0 0 var(--space-2);
 
-  font-size: var(--font-size-lg);
+  font-size: 23px;
 }
 
 .dish-body p {
@@ -2361,7 +2339,7 @@ const handleSearch = () => {
 
   color: var(--color-text-muted);
 
-  font-size: var(--font-size-sm);
+  font-size: 18px;
 
   line-height: 1.6;
 }
@@ -2384,10 +2362,14 @@ const handleSearch = () => {
 
 .dish-footer strong {
   color: var(--color-primary);
-
+  font-weight: 700;
   font-size: var(--font-size-sm);
-}
+    font-size: 19px; 
 
+}
+.dish-footer span[data-v-b4e148ca] {
+  font-size: 19px; 
+}
 .dish-link {
   color: var(--color-text);
 
