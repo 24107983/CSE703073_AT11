@@ -105,8 +105,11 @@ function saveUserProfile() {
 async function fetchBookmarkedDishes() {
   loadingBookmarks.value = true
   try {
-    const storageKey = `bookmarked_dishes_${currentUserEmail.value}`
-    const savedBookmarks = JSON.parse(localStorage.getItem(storageKey) || '{}')
+    // Quét cả key kèm email lẫn key chung không có email
+    const storageKeyWithEmail = `bookmarked_dishes_${currentUserEmail.value}`
+    const savedBookmarks = JSON.parse(
+      localStorage.getItem(storageKeyWithEmail) || localStorage.getItem('bookmarked_dishes') || '{}'
+    )
     const bookmarkedIds = Object.keys(savedBookmarks).filter(id => savedBookmarks[id])
 
     if (bookmarkedIds.length === 0) {
@@ -136,8 +139,11 @@ async function fetchBookmarkedDishes() {
 async function fetchBookmarkedLocations() {
   loadingLocations.value = true
   try {
-    const storageKey = `bookmarked_locations_${currentUserEmail.value}`
-    const savedBookmarks = JSON.parse(localStorage.getItem(storageKey) || '{}')
+    // Quét cả key kèm email lẫn key chung không có email
+    const storageKeyWithEmail = `bookmarked_locations_${currentUserEmail.value}`
+    const savedBookmarks = JSON.parse(
+      localStorage.getItem(storageKeyWithEmail) || localStorage.getItem('bookmarked_locations') || '{}'
+    )
     const bookmarkedIds = Object.keys(savedBookmarks).filter(id => savedBookmarks[id])
 
     if (bookmarkedIds.length === 0) {
@@ -165,13 +171,20 @@ async function fetchBookmarkedLocations() {
 }
 
 function removeBookmark(dishId) {
-  const storageKey = `bookmarked_dishes_${currentUserEmail.value}`
-  const savedBookmarks = JSON.parse(localStorage.getItem(storageKey) || '{}')
-  savedBookmarks[dishId] = false
-  localStorage.setItem(storageKey, JSON.stringify(savedBookmarks))
+  // Đồng bộ xóa trên cả 2 loại key để tránh sót dữ liệu
+  const storageKeyWithEmail = `bookmarked_dishes_${currentUserEmail.value}`
+  
+  [storageKeyWithEmail, 'bookmarked_dishes'].forEach(key => {
+    const savedBookmarks = JSON.parse(localStorage.getItem(key) || '{}')
+    if (savedBookmarks[dishId] !== undefined) {
+      savedBookmarks[dishId] = false
+      localStorage.setItem(key, JSON.stringify(savedBookmarks))
+    }
+  })
 
   bookmarkedDishes.value = bookmarkedDishes.value.filter(d => d.mon_an_id !== dishId)
 }
+
 
 function removeLocationBookmark(locationId) {
   const storageKey = `bookmarked_locations_${currentUserEmail.value}`

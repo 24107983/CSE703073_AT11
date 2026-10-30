@@ -1,5 +1,44 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { ref } from 'vue'
+
+const newsletterEmail = ref('')
+const newsletterMessage = ref('')
+const isSuccess = ref(false)
+
+const handleSubscribe = () => {
+  const email = newsletterEmail.value.trim()
+  
+  if (!email) {
+    newsletterMessage.value = '⚠️ Vui lòng nhập địa chỉ email của bạn!'
+    isSuccess.value = false
+    return
+  }
+
+  // Kiểm tra định dạng email cơ bản
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    newsletterMessage.value = '⚠️ Địa chỉ email không hợp lệ!'
+    isSuccess.value = false
+    return
+  }
+
+  // Lưu lại vào localStorage (hoặc gọi API)
+  try {
+    const list = JSON.parse(localStorage.getItem('newsletter_subscribers') || '[]')
+    if (!list.includes(email)) {
+      list.push(email)
+      localStorage.setItem('newsletter_subscribers', JSON.stringify(list))
+    }
+  } catch (e) {
+    console.error(e)
+  }
+
+  // Thông báo thành công
+  isSuccess.value = true
+  newsletterMessage.value = '🎉 Cảm ơn bạn đã đăng ký nhận bản tin ẩm thực thành công!'
+  newsletterEmail.value = '' // Xóa sạch ô input sau khi gửi
+}
 </script>
 
 <template>
@@ -11,7 +50,7 @@ import { RouterLink } from 'vue-router'
         <div class="footer-brand">
           <div class="brand-logo">
             <span class="logo-badge">AT-11</span>
-            <span class="logo-text">Vietnam Culinary Editorial</span>
+            <span class="logo-text">Ẩm thực vùng miền</span>
           </div>
           <p class="brand-desc">
             Nền tảng biên tập và lưu trữ di sản văn hóa ẩm thực Việt Nam. Kết nối thực khách với những hành trình trải nghiệm ba miền nguyên bản.
@@ -48,18 +87,41 @@ import { RouterLink } from 'vue-router'
         </div>
 
         <!-- Cột 4: Đăng ký nhận tin & Hotline -->
-        <div class="footer-col footer-newsletter">
-          <h4>Bản tin Ẩm thực</h4>
-          <p>Nhận bài viết biên tập và ưu đãi hành trình mới nhất hàng tuần.</p>
-          <div class="newsletter-box">
-            <input type="email" placeholder="Email của bạn..." />
-            <button type="button">Gửi →</button>
-          </div>
-          <div class="contact-info">
-            <span>📞 Hotline: 1900 1122</span>
-            <span>✉️ Email: contact@culinaryeditorial.vn</span>
-          </div>
-        </div>
+<!-- Cột 4: Đăng ký nhận tin & Hotline -->
+<div class="footer-col footer-newsletter">
+  <h4>Bản tin Ẩm thực</h4>
+  <p>Nhận bài viết biên tập và ưu đãi hành trình mới nhất hàng tuần.</p>
+  
+  <!-- Hộp chứa form, ép cứng hiển thị dạng khối ngang -->
+  <div class="newsletter-box" style="display: block; width: 100%; margin-bottom: 15px;">
+    <div style="display: flex; gap: 8px; align-items: stretch; width: 100%;">
+      <input 
+        v-model="newsletterEmail" 
+        type="email" 
+        placeholder="Nhập email của bạn..." 
+        style="flex: 1; height: 42px; padding: 0 14px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #fff; outline: none; font-size: 14px;"
+        @keyup.enter="handleSubscribe"
+      />
+      <button 
+        type="button" 
+        style="height: 42px; padding: 0 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap;"
+        @click="handleSubscribe"
+      >
+        Gửi →
+      </button>
+    </div>
+
+    <!-- Dòng thông báo nằm ngay ngắn ở phía dưới, dàn hàng ngang bình thường -->
+    <p v-if="newsletterMessage" :style="{ color: isSuccess ? '#4ade80' : '#f87171', fontSize: '13px', marginTop: '8px', marginBottom: '0', display: 'block' }">
+      {{ newsletterMessage }}
+    </p>
+  </div>
+
+  <div class="contact-info">
+    <span>📞 Hotline: 1900 1122</span><br/>
+    <span>✉️ Email: contact@culinaryeditorial.vn</span>
+  </div>
+</div>
 
       </div>
 
@@ -83,7 +145,7 @@ import { RouterLink } from 'vue-router'
   background: #0f172a;
   color: #94a3b8;
   padding: 60px 0 24px;
-  margin-top: auto;
+  margin-top: 30px;
   border-top: 1px solid #1e293b;
   font-family: inherit;
 }

@@ -235,8 +235,16 @@ const startCountdown = (expiryTime) => {
 }
 
 // Giữ chỗ kết hợp API thật & Client Fallback
+// Giữ chỗ kết hợp API thật & Client Fallback
 const holdSeats = async () => {
   if (holding.value) return
+
+  // 1. Kiểm tra nhanh xem đã đăng nhập hay chưa dựa vào localStorage
+  const isLogged = localStorage.getItem('auth_user') || localStorage.getItem('user') || localStorage.getItem('auth_user_token') || localStorage.getItem('token')
+  if (!isLogged) {
+    holdError.value = '⚠️ Bạn cần đăng nhập tài khoản để thực hiện giữ chỗ và thanh toán!'
+    return
+  }
 
   if (holdData.value) {
     holdError.value = 'Bạn đã có lượt giữ chỗ trên màn hình này.'
@@ -270,6 +278,13 @@ const holdSeats = async () => {
         })
       })
 
+      // 2. Bắt lỗi nếu server trả về chưa đăng nhập hoặc hết phiên (401)
+      if (response.status === 401) {
+        holding.value = false
+        holdError.value = 'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập. Vui lòng đăng nhập lại để tiếp tục!'
+        return
+      }
+
       const result = await response.json()
 
       if (response.ok && result.data) {
@@ -283,6 +298,11 @@ const holdSeats = async () => {
         holdSuccess.value = result.message || 'Giữ chỗ thành công!'
         startCountdown(booking.het_han_giu)
         await fetchSchedules()
+        holding.value = false
+        return
+      } else if (result && result.message) {
+        // Hiển thị lỗi từ server trả về (ví dụ: không đủ chỗ)
+        holdError.value = result.message
         holding.value = false
         return
       }
@@ -756,6 +776,11 @@ onUnmounted(() => {
 .date-option-card.active { border-color: var(--color-primary); background: #f0f7ff; box-shadow: 0 0 0 1px var(--color-primary); }
 .card-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--color-border); display: flex; align-items: center; justify-content: center; margin-top: 2px; flex-shrink: 0; }
 .date-option-card.active .card-radio { border-color: var(--color-primary); }
+.date-option-card.active .card-body h3,
+.date-option-card.active .date-price,
+.date-option-card.active .date-subtext {
+  color: #0f172a !important;
+}
 .radio-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); }
 .card-body { flex: 1; }
 .card-header-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
