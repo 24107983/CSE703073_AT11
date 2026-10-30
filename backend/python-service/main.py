@@ -1,74 +1,155 @@
-import os
-import re
-import math
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import pymysql
+from dotenv import dotenv_values
 from fastapi import FastAPI, HTTPException, Query
-
-app = FastAPI(title="AT-11 Python Recommendation Service")
-
-# Đọc cấu hình từ file .env của Laravel.
-# Không ghi mật khẩu trực tiếp vào mã nguồn.
-def load_env_file():
-    env_path = Path(__file__).resolve().parent.parent / ".env"
-
-    if not env_path.is_file():
-        return
-
-    for line in env_path.read_text(encoding="utf-8-sig").splitlines():
-        line = line.strip()
-
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-
-        if key.startswith("DB_") and key not in os.environ:
-            os.environ[key] = value
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
-load_env_file()
+# Read Laravel environment variables without exposing credentials in code.
+BACKEND_ENV = Path(__file__).resolve().parent.parent / ".env"
+ENV = dotenv_values(BACKEND_ENV)
 
 
-def get_db_connection():
-    if os.getenv("DB_CONNECTION", "mysql").lower() != "mysql":
-        raise RuntimeError("Python service hiện chỉ hỗ trợ MySQL.")
+def get_db_config() -> dict[str, Any]:
+    required = ["DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME"]
+    missing = [key for key in required if not ENV.get(key)]
 
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "127.0.0.1"),
-        port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USERNAME", "root"),
-        password=os.getenv("DB_PASSWORD", ""),
-        database=os.getenv("DB_DATABASE", "am_thuc_vung_mien"),
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=3,
-        read_timeout=5,
-        write_timeout=5,
+    if missing:
+        raise RuntimeError(
+            "Missing MySQL settings in backend/.env: " + ", ".join(missing)
+        )
+
+    return {
+        "host": ENV["DB_HOST"],
+        "port": int(ENV["DB_PORT"]),
+        "database": ENV["DB_DATABASE"],
+        "user": ENV["DB_USERNAME"],
+        "password": ENV.get("DB_PASSWORD") or "",
+        "charset": "utf8mb4",
+	"use_unicode": True,
+        "cursorclass": pymysql.cursors.DictCursor,
+        "connect_timeout": 5,
+    }
+
+
+def load_data() -> list[dict[str, Any]]:
+    connection = pymysql.connect(**get_db_config())
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    ma.mon_an_id AS id,
+                    ma.ten_mon AS name,
+                    COALESCE(ma.mo_ta, '') AS description,
+                    ma.gia_tham_khao AS price,
+                    ma.vung_mien_id AS region_id,
+                    vm.ten_vung AS region_name,
+                    ma.tinh_thanh_id AS province_id,
+                    tt.ten_tinh AS province_name
+                FROM mon_an ma
+                LEFT JOIN vung_mien vm
+                    ON ma.vung_mien_id = vm.vung_mien_id
+                LEFT JOIN tinh_thanh tt
+                    ON ma.tinh_thanh_id = tt.tinh_thanh_id
+                WHERE ma.ten_mon NOT LIKE '%Mon an mo phong%'
+                  AND ma.ten_mon NOT LIKE '%Test%'
+                ORDER BY ma.mon_an_id
+            """)
+            dishes = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT
+                    mal.mon_an_id AS dish_id,
+                    nl.ten_nguyen_lieu AS ingredient
+                FROM mon_an_nguyen_lieu mal
+                JOIN nguyen_lieu nl
+                    ON mal.nguyen_lieu_id = nl.nguyen_lieu_id
+            """)
+            ingredient_rows = cursor.fetchall()
+
+        ingredients_by_dish: dict[int, list[str]] = {}
+
+        for row in ingredient_rows:
+            dish_id = int(row["dish_id"])
+            ingredients_by_dish.setdefault(dish_id, []).append(
+                row["ingredient"]
+            )
+
+        for dish in dishes:
+            dish["id"] = int(dish["id"])
+            dish["region_id"] = (
+                int(dish["region_id"])
+                if dish["region_id"] is not None else None
+            )
+            dish["province_id"] = (
+                int(dish["province_id"])
+                if dish["province_id"] is not None else None
+            )
+            dish["ingredients"] = ingredients_by_dish.get(dish["id"], [])
+
+            dish["text"] = " ".join([
+                str(dish["name"] or ""),
+                str(dish["description"] or ""),
+                str(dish["province_name"] or ""),
+                str(dish["region_name"] or ""),
+                " ".join(dish["ingredients"]),
+            ])
+
+        if not dishes:
+            raise RuntimeError("No dishes found in table mon_an.")
+
+        return dishes
+
+    finally:
+        connection.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    dishes = load_data()
+
+    vectorizer = TfidfVectorizer(
+        lowercase=True,
+        ngram_range=(1, 2),
+        max_features=5000,
+        strip_accents="unicode",
     )
 
+    texts = [dish["text"] for dish in dishes]
+    matrix = vectorizer.fit_transform(texts)
 
-def is_mock_dish(name):
-    """Loại tên món mô phỏng khỏi kết quả gợi ý."""
-    normalized = re.sub(r"\s+", " ", name.strip().lower())
+    app.state.dishes = dishes
+    app.state.dish_by_id = {dish["id"]: i for i, dish in enumerate(dishes)}
+    app.state.vectorizer = vectorizer
+    app.state.matrix = matrix
 
-    mock_patterns = (
-        "mon an mo phong",
-        "món ăn mô phỏng",
-        "món ăn mô phong",
-        "mon an gia lap",
-        "món ăn giả lập",
-        "món ăn gợi ý",
-    )
+    print(f"Loaded {len(dishes)} dishes into memory.")
 
-    return any(pattern in normalized for pattern in mock_patterns)
+    yield
 
+    app.state.dishes = []
+    app.state.matrix = None
+
+
+app = FastAPI(
+    title="AT-11 Culinary Recommendation API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+@app.get("/")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "AT-11 Python Recommendation Service",
+        "loaded_dishes": len(app.state.dishes),
+    }
 
 @app.get("/health")
 def health():
@@ -82,12 +163,15 @@ def health():
         finally:
             connection.close()
 
-        return {"status": "ok", "database": "connected"}
-
-    except Exception:
+        return {
+            "status": "ok",
+            "database": "connected",
+            "loaded_dishes": len(app.state.dishes),
+        }
+    except Exception as e:
         raise HTTPException(
             status_code=503,
-            detail="Python service không kết nối được database.",
+            detail=f"Database connection failed: {str(e)}",
         )
 
 
@@ -104,119 +188,65 @@ def test_error():
         status_code=500,
         detail="Test Python internal server error",
     )
-
-
 @app.get("/recommend/{product_id}")
 def recommend(
     product_id: int,
-    k: int = Query(default=5),
+    k: int = Query(default=5, ge=1, le=20),
 ):
-    if k < 1 or k > 20:
-        raise HTTPException(
-            status_code=400,
-            detail="k must be between 1 and 20",
-        )
+    dishes = app.state.dishes
+    dish_by_id = app.state.dish_by_id
 
-    try:
-        connection = get_db_connection()
+    if product_id not in dish_by_id:
+        raise HTTPException(status_code=404, detail="Dish not found.")
 
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT
-                        m.mon_an_id,
-                        m.ten_mon,
-                        nl.nguyen_lieu_id
-                    FROM mon_an AS m
-                    LEFT JOIN mon_an_nguyen_lieu AS mnl
-                        ON m.mon_an_id = mnl.mon_an_id
-                    LEFT JOIN nguyen_lieu AS nl
-                        ON mnl.nguyen_lieu_id = nl.nguyen_lieu_id
-                    ORDER BY m.mon_an_id
-                    """
-                )
-                rows = cursor.fetchall()
-        finally:
-            connection.close()
+    source_index = dish_by_id[product_id]
+    source = dishes[source_index]
 
-    except Exception:
-        raise HTTPException(
-            status_code=503,
-            detail="Không thể truy cập dữ liệu món ăn.",
-        )
+    similarities = cosine_similarity(
+        app.state.matrix[source_index],
+        app.state.matrix,
+    ).flatten()
 
-    dishes = {}
+    results = []
 
-    for row in rows:
-        dish_id = row["mon_an_id"]
-        name = (row["ten_mon"] or "").strip()
-
-        if dish_id not in dishes:
-            dishes[dish_id] = {
-                "id": dish_id,
-                "name": name,
-                "ingredients": set(),
-            }
-
-        if row["nguyen_lieu_id"] is not None:
-            dishes[dish_id]["ingredients"].add(row["nguyen_lieu_id"])
-
-    source = dishes.get(product_id)
-
-    if source is None or not source["name"]:
-        raise HTTPException(
-            status_code=404,
-            detail="Không tìm thấy món ăn.",
-        )
-
-    if is_mock_dish(source["name"]):
-        raise HTTPException(
-            status_code=404,
-            detail="Món ăn này là dữ liệu mô phỏng, không hỗ trợ gợi ý.",
-        )
-
-    if not source["ingredients"]:
-        return {
-            "product_id": product_id,
-            "recommendations": [],
-        }
-
-    scored = []
-
-    for candidate_id, candidate in dishes.items():
-        # Không gợi ý chính món đang xem.
-        if candidate_id == product_id:
+    for index, candidate in enumerate(dishes):
+        if candidate["id"] == product_id:
             continue
 
-        # Chỉ dùng món có tên thật và có nguyên liệu.
-        if not candidate["name"] or is_mock_dish(candidate["name"]):
-            continue
+        score = float(similarities[index])
 
-        candidate_ingredients = candidate["ingredients"]
+        if (
+            source["province_id"] is not None
+            and candidate["province_id"] == source["province_id"]
+        ):
+            score += 0.30
 
-        if not candidate_ingredients:
-            continue
+        elif (
+            source["region_id"] is not None
+            and candidate["region_id"] == source["region_id"]
+        ):
+            score += 0.15
 
-        common = source["ingredients"] & candidate_ingredients
-        union = source["ingredients"] | candidate_ingredients
+        source_ingredients = set(source["ingredients"])
+        candidate_ingredients = set(candidate["ingredients"])
 
-        if not common or not union:
-            continue
+        if source_ingredients and candidate_ingredients:
+            union = source_ingredients | candidate_ingredients
+            ingredient_score = len(
+                source_ingredients & candidate_ingredients
+            ) / len(union)
 
-        # Jaccard = số nguyên liệu chung / tổng số nguyên liệu khác nhau.
-        score = len(common) / len(union)
+            score += 0.20 * ingredient_score
 
-        scored.append({
-            "id": candidate_id,
+        results.append({
+            "id": candidate["id"],
             "name": candidate["name"],
             "score": round(score, 4),
         })
 
-    # Ưu tiên điểm cao; nếu bằng điểm thì ưu tiên ID nhỏ hơn.
-    scored.sort(key=lambda item: (-item["score"], item["id"]))
+    results.sort(key=lambda item: item["score"], reverse=True)
 
     return {
         "product_id": product_id,
-        "recommendations": scored[:k],
+        "recommendations": results[:k],
     }
