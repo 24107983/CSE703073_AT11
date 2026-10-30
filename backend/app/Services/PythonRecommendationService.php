@@ -21,10 +21,50 @@ class PythonRecommendationService
                 $data = $response->json();
 
                 if (
-                    isset($data['recommendations'])
+                    is_array($data)
+                    && isset($data['recommendations'])
                     && is_array($data['recommendations'])
                 ) {
-                    return $data['recommendations'];
+                    $recommendations = [];
+
+                    foreach ($data['recommendations'] as $item) {
+                        if (
+                            !is_array($item)
+                            || !isset(
+                                $item['id'],
+                                $item['name'],
+                                $item['score']
+                            )
+                            || !is_numeric($item['id'])
+                            || !is_string($item['name'])
+                            || trim($item['name']) === ''
+                            || !is_numeric($item['score'])
+                        ) {
+                            Log::warning(
+                                'Python recommendation chứa món ăn không hợp lệ.',
+                                ['product_id' => $productId]
+                            );
+
+                            continue;
+                        }
+
+                        $recommendations[] = array_merge($item, [
+                            'id' => (int) $item['id'],
+                            'name' => trim($item['name']),
+                            'score' => (float) $item['score'],
+                        ]);
+                    }
+
+                    if ($recommendations !== []) {
+                        return $recommendations;
+                    }
+
+                    Log::warning(
+                        'Python recommendation không có kết quả hợp lệ.',
+                        ['product_id' => $productId]
+                    );
+
+                    return $this->fallback($productId);
                 }
 
                 Log::warning(
@@ -45,7 +85,6 @@ class PythonRecommendationService
             ]);
 
             return $this->fallback($productId);
-
         } catch (\Throwable $e) {
             Log::error(
                 'Không thể gọi Python recommendation service.',
@@ -62,7 +101,8 @@ class PythonRecommendationService
     public function testError(): array
     {
         try {
-            $url = config('services.python.url') . '/test-error';
+            $url = rtrim(config('services.python.url'), '/')
+                . '/test-error';
 
             $response = Http::timeout(3)->get($url);
 
@@ -76,7 +116,6 @@ class PythonRecommendationService
             ]);
 
             return $this->fallback(0);
-
         } catch (\Throwable $e) {
             Log::error(
                 'Python test endpoint timeout hoặc không kết nối được.',
@@ -92,7 +131,8 @@ class PythonRecommendationService
     public function testTimeout(): array
     {
         try {
-            $url = config('services.python.url') . '/test-timeout';
+            $url = rtrim(config('services.python.url'), '/')
+                . '/test-timeout';
 
             $response = Http::timeout(3)->get($url);
 
@@ -109,7 +149,6 @@ class PythonRecommendationService
             );
 
             return $this->fallback(0);
-
         } catch (\Throwable $e) {
             Log::error(
                 'Python test timeout: Laravel đã kích hoạt fallback.',

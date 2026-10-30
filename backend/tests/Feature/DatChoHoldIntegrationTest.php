@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
+use RuntimeException;
 
 #[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
@@ -184,5 +185,52 @@ class DatChoHoldIntegrationTest extends TestCase
             $startedAt->copy()->addMinutes(15)->timestamp,
             $booking->het_han_giu->timestamp
         );
+    }
+public function test_hold_rejects_past_schedule_without_changing_capacity(): void
+{
+    $userId = DB::table('nguoi_dung')->insertGetId([
+        'ho_ten' => 'Test User',
+        'email' => 'test-past@example.com',
+        'mat_khau' => 'test',
+        'vai_tro' => 'khach_du_lich',
+    ]);
+
+    $journeyId = DB::table('hanh_trinh_am_thuc')->insertGetId([
+        'ten_hanh_trinh' => 'Hành trình kiểm thử',
+        'mo_ta' => null,
+        'thoi_luong' => '1 ngày',
+    ]);
+
+    $availabilityId = DB::table('lich_kha_dung_hanh_trinh')
+        ->insertGetId([
+            'hanh_trinh_id' => $journeyId,
+            'ngay_phuc_vu' => now()->subDay()->toDateString(),
+            'so_cho_total' => 10,
+            'so_cho_held' => 2,
+            'so_cho_sold' => 3,
+            'gia_tham_khao' => 150000,
+        ]);
+
+    Auth::login(NguoiDung::findOrFail($userId));
+
+    try {
+        app(DatChoService::class)->hold($availabilityId, 1);
+        $this->fail('Phải từ chối giữ chỗ cho lịch đã qua ngày.');
+    } catch (RuntimeException $e) {
+        $this->assertSame(
+            'Không thể giữ chỗ cho lịch đã qua ngày phục vụ.',
+            $e->getMessage()
+        );
+    }
+
+    $this->assertDatabaseMissing('dat_cho', [
+        'lich_kha_dung_id' => $availabilityId,
+    ]);
+
+    $this->assertDatabaseHas('lich_kha_dung_hanh_trinh', [
+        'lich_kha_dung_id' => $availabilityId,
+        'so_cho_held' => 2,
+        'so_cho_sold' => 3,
+    ]);
     }
 }
