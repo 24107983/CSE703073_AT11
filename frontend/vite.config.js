@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://internationally-red-pipes-baseball.trycloudflare.com',
+        target: 'https://cse703073-backend.onrender.com',
         changeOrigin: true,
         secure: false
       }
