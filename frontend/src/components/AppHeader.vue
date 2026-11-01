@@ -25,18 +25,28 @@ const handleAuthChange = () => {
   loadUser()
 }
 
-const handleLogout = () => {
-  fetch('http://10.139.87.32:8000/api/auth/logout', {
-    method: 'POST',
-    headers: { Accept: 'application/json' },
-    credentials: 'include'
-  }).catch(error => {
-    console.warn('Lỗi kết nối server khi đăng xuất:', error)
-  })
 
-  localStorage.removeItem('auth_user')
-  window.dispatchEvent(new Event('auth-changed'))
-  router.push('/dang-nhap')
+const handleLogout = async () => {
+  try {
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'include'
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    // Chỉ xóa thông tin đăng nhập khi server xác nhận đăng xuất
+    localStorage.removeItem('auth_user')
+    window.dispatchEvent(new Event('auth-changed'))
+    router.push('/dang-nhap')
+
+  } catch (error) {
+    console.error('Lỗi đăng xuất:', error)
+    alert('Chưa thể đăng xuất khỏi máy chủ. Vui lòng thử lại.')
+  }
 }
 
 const mobileMenuOpen = ref(false)
