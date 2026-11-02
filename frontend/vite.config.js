@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://internationally-red-pipes-baseball.trycloudflare.com',
+        target: 'https://obviously-ever-sounds-announce.trycloudflare.com',
         changeOrigin: true,
         secure: false
       }

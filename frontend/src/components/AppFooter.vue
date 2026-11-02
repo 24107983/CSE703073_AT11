@@ -71,7 +71,7 @@ const handleSubscribe = () => {
             <li><RouterLink to="/hanh-trinh">Hành trình ẩm thực</RouterLink></li>
             <li><RouterLink to="/mon-an">Danh mục món ăn</RouterLink></li>
             <li><RouterLink to="/ban-do">Bản đồ ẩm thực</RouterLink></li>
-            <li><RouterLink to="/ho-so-ca-nhan">Tài khoản cá nhân</RouterLink></li>
+            <li><RouterLink to="/ho-so">Tài khoản cá nhân</RouterLink></li>
           </ul>
         </div>
 
