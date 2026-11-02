@@ -22,8 +22,20 @@ const loading = ref(false)
 const errorMessage = ref('')
 
 const selectedScheduleId = ref(null)
-const customSelectedDate = ref('')
-const dateMode = ref('system')
+const scheduleLoading = ref(false)
+const scheduleError = ref('')
+
+const getLocalDateString = () => {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const minScheduleDate = getLocalDateString()
+const maxScheduleDate = '2027-12-31'
+const customSelectedDate = ref(minScheduleDate)
 
 const paying = ref(false)
 const paymentMessage = ref('')
@@ -167,15 +179,6 @@ const increaseGuest = () => {
   }
 }
 
-const getCurrentUserEmail = () => {
-  try {
-    const user = JSON.parse(localStorage.getItem('auth_user') || localStorage.getItem('user') || '{}')
-    return user.email || user.ten || 'guest@test.com'
-  } catch (e) {
-    return 'guest@test.com'
-  }
-}
-
 // Lấy danh sách món ăn chuẩn khớp 100% theo từng hành trình
 const filteredDishes = computed(() => {
   const journeyId = Number(route.params.id)
@@ -196,7 +199,7 @@ const filteredDishes = computed(() => {
 })
 
 const totalPrice = computed(() => {
-  const price = Number(selectedSchedule.value?.gia_tham_khao || journey.value?.gia_tham_khao || 500000)
+  const price = Number(selectedSchedule.value?.gia_tham_khao || 0)
   return price * Number(guestCount.value || 0)
 })
 
@@ -234,15 +237,18 @@ const startCountdown = (expiryTime) => {
   }
 }
 
-// Giữ chỗ kết hợp API thật & Client Fallback
-// Giữ chỗ kết hợp API thật & Client Fallback
+// Gửi yêu cầu giữ chỗ bằng API thật, không tạo dữ liệu giả trên trình duyệt.
 const holdSeats = async () => {
   if (holding.value) return
 
-  // 1. Kiểm tra nhanh xem đã đăng nhập hay chưa dựa vào localStorage
-  const isLogged = localStorage.getItem('auth_user') || localStorage.getItem('user') || localStorage.getItem('auth_user_token') || localStorage.getItem('token')
+  const isLogged =
+    localStorage.getItem('auth_user') ||
+    localStorage.getItem('user') ||
+    localStorage.getItem('auth_user_token') ||
+    localStorage.getItem('token')
+
   if (!isLogged) {
-    holdError.value = '⚠️ Bạn cần đăng nhập tài khoản để thực hiện giữ chỗ và thanh toán!'
+    holdError.value = 'Bạn cần đăng nhập tài khoản để thực hiện giữ chỗ.'
     return
   }
 
@@ -252,7 +258,13 @@ const holdSeats = async () => {
   }
 
   const currentSchedule = selectedSchedule.value
+  const scheduleId = Number(currentSchedule?.lich_kha_dung_id)
   const availableSeats = remainingSeats(currentSchedule)
+
+  if (!Number.isInteger(scheduleId) || scheduleId <= 0) {
+    holdError.value = 'Vui lòng chọn ngày có lịch phục vụ hợp lệ.'
+    return
+  }
 
   if (guestCount.value < 1 || guestCount.value > availableSeats) {
     holdError.value = `Số khách vượt quá số chỗ còn lại (${availableSeats} chỗ).`
@@ -263,74 +275,62 @@ const holdSeats = async () => {
   holdError.value = ''
   holdSuccess.value = ''
 
-  if (dateMode.value === 'system' && Number.isInteger(Number(selectedScheduleId.value))) {
-    try {
-      const response = await fetch('/api/dat-cho/hold', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          lich_kha_dung_id: Number(selectedScheduleId.value),
-          so_khach: Number(guestCount.value)
-        })
+  try {
+    const response = await fetch('/api/dat-cho/hold', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        lich_kha_dung_id: scheduleId,
+        so_khach: Number(guestCount.value)
       })
+    })
 
-      // 2. Bắt lỗi nếu server trả về chưa đăng nhập hoặc hết phiên (401)
-      if (response.status === 401) {
-        holding.value = false
-        holdError.value = 'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập. Vui lòng đăng nhập lại để tiếp tục!'
-        return
-      }
+    const result = await response.json().catch(() => ({}))
 
-      const result = await response.json()
-
-      if (response.ok && result.data) {
-        const booking = result.data
-        holdData.value = {
-          ...booking,
-          ten_hanh_trinh: journey.value?.ten_hanh_trinh || 'Hành trình ẩm thực',
-          ngay_phuc_vu: currentSchedule.ngay_phuc_vu,
-          tong_tien: totalPrice.value
-        }
-        holdSuccess.value = result.message || 'Giữ chỗ thành công!'
-        startCountdown(booking.het_han_giu)
-        await fetchSchedules()
-        holding.value = false
-        return
-      } else if (result && result.message) {
-        // Hiển thị lỗi từ server trả về (ví dụ: không đủ chỗ)
-        holdError.value = result.message
-        holding.value = false
-        return
-      }
-    } catch (e) {
-      console.warn('API Hold dự phòng kích hoạt...')
+    if (response.status === 401) {
+      throw new Error(
+        'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập. Vui lòng đăng nhập lại.'
+      )
     }
+
+    if (!response.ok || !result.data) {
+      const validationErrors = result.errors
+        ? Object.values(result.errors).flat().join(' ')
+        : ''
+
+      throw new Error(
+        result.message ||
+        validationErrors ||
+        'Không thể giữ chỗ. Vui lòng thử lại.'
+      )
+    }
+
+    // Chỉ thông báo thành công khi Backend trả về bản ghi đặt chỗ thật.
+    const booking = result.data
+
+    holdData.value = {
+      ...booking,
+      ten_hanh_trinh: journey.value?.ten_hanh_trinh || 'Hành trình ẩm thực',
+      ngay_phuc_vu: currentSchedule.ngay_phuc_vu,
+      tong_tien: booking.tong_tien ?? totalPrice.value
+    }
+
+    holdSuccess.value = result.message || 'Giữ chỗ thành công!'
+
+    if (booking.het_han_giu) {
+      startCountdown(booking.het_han_giu)
+    }
+  } catch (error) {
+    console.error('Lỗi giữ chỗ:', error)
+    holdError.value = error.message || 'Không thể kết nối đến máy chủ.'
+  } finally {
+    holding.value = false
   }
-
-  await new Promise(resolve => setTimeout(resolve, 500))
-  const mockExpiry = new Date(Date.now() + 15 * 60 * 1000).toISOString()
-
-  const mockBooking = {
-    dat_cho_id: Date.now(),
-    ma_dat_cho: `AT-${Math.floor(100000 + Math.random() * 900000)}`,
-    het_han_giu: mockExpiry,
-    so_khach: Number(guestCount.value),
-    tong_tien: totalPrice.value,
-    ten_hanh_trinh: journey.value?.ten_hanh_trinh || 'Hành trình ẩm thực',
-    ngay_phuc_vu: currentSchedule.ngay_phuc_vu,
-    email: getCurrentUserEmail()
-  }
-
-  holdData.value = mockBooking
-  holdSuccess.value = 'Giữ chỗ thành công!'
-  startCountdown(mockExpiry)
-  holding.value = false
 }
-
 const payBooking = () => {
   if (!holdData.value?.dat_cho_id) {
     paymentError.value = 'Không tìm thấy mã đặt chỗ. Vui lòng giữ chỗ lại.'
@@ -402,62 +402,100 @@ const fetchJourneyDetail = async () => {
     loading.value = false
   }
 }
+let scheduleRequestSequence = 0
 
-const fetchSchedules = async () => {
+// Tải lịch phục vụ thật theo ngày khách chọn.
+const fetchSchedules = async (date = customSelectedDate.value) => {
+  const requestId = ++scheduleRequestSequence
+
+  // Xóa ID cũ để tránh gửi nhầm lịch của ngày trước.
+  schedules.value = []
+  selectedScheduleId.value = null
+  scheduleError.value = ''
+  scheduleLoading.value = false
+
+  if (!date || date < minScheduleDate || date > maxScheduleDate) {
+    scheduleError.value =
+      'Vui lòng chọn ngày từ hôm nay đến hết ngày 31/12/2027.'
+    return
+  }
+
+  scheduleLoading.value = true
+
   try {
-    const journeyId = route.params.id
-    const response = await fetch(`/api/hanh-trinh-am-thuc/${journeyId}/lich-kha-dung`, {
-      headers: { Accept: 'application/json' }
-    })
-
-    if (response.ok) {
-      const result = await response.json()
-      const apiSchedules = result.data || []
-
-      if (apiSchedules.length > 0) {
-        schedules.value = apiSchedules
-        selectedScheduleId.value = apiSchedules[0].lich_kha_dung_id
-        dateMode.value = 'system'
-        return
+    const journeyId = Number(route.params.id)
+    const response = await fetch(
+      `/api/hanh-trinh-am-thuc/${journeyId}/lich-kha-dung?ngay_phuc_vu=${encodeURIComponent(date)}`,
+      {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
       }
-    }
-  } catch (e) {}
+    )
 
-  schedules.value = [
-    { lich_kha_dung_id: 101, ngay_phuc_vu: '2026-11-01', gia_tham_khao: 500000, so_cho_con_lai: 20 },
-    { lich_kha_dung_id: 103, ngay_phuc_vu: '2026-11-03', gia_tham_khao: 500000, so_cho_con_lai: 20 },
-    { lich_kha_dung_id: 105, ngay_phuc_vu: '2026-11-05', gia_tham_khao: 500000, so_cho_con_lai: 20 },
-    { lich_kha_dung_id: 107, ngay_phuc_vu: '2026-11-07', gia_tham_khao: 500000, so_cho_con_lai: 20 },
-    { lich_kha_dung_id: 109, ngay_phuc_vu: '2026-11-09', gia_tham_khao: 500000, so_cho_con_lai: 20 },
-    { lich_kha_dung_id: 111, ngay_phuc_vu: '2026-11-11', gia_tham_khao: 500000, so_cho_con_lai: 20 }
-  ]
-  selectedScheduleId.value = 101
-  dateMode.value = 'system'
-  customSelectedDate.value = '2026-11-15'
+    const result = await response.json().catch(() => ({}))
+
+    // Bỏ qua phản hồi cũ nếu khách vừa chọn ngày khác.
+    if (requestId !== scheduleRequestSequence) return
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Không thể tải lịch phục vụ.')
+    }
+
+    const apiSchedules = Array.isArray(result.data) ? result.data : []
+    const schedule = apiSchedules.find(
+      item => item.ngay_phuc_vu === date
+    )
+
+    if (!schedule) {
+      scheduleError.value =
+        'Ngày này hiện chưa có lịch phục vụ. Vui lòng chọn ngày khác.'
+      return
+    }
+
+    const realScheduleId = Number(schedule.lich_kha_dung_id)
+
+    if (!Number.isInteger(realScheduleId) || realScheduleId <= 0) {
+      scheduleError.value = 'Lịch phục vụ không có mã hợp lệ.'
+      return
+    }
+
+    schedules.value = [schedule]
+    selectedScheduleId.value = realScheduleId
+  } catch (error) {
+    if (requestId === scheduleRequestSequence) {
+      console.error('Lỗi tải lịch phục vụ:', error)
+      scheduleError.value =
+        error.message || 'Không thể kết nối đến máy chủ.'
+    }
+  } finally {
+    if (requestId === scheduleRequestSequence) {
+      scheduleLoading.value = false
+    }
+  }
 }
 
+// Chỉ sử dụng lịch có ID thực do Backend trả về.
 const selectedSchedule = computed(() => {
-  if (dateMode.value === 'system' && selectedScheduleId.value) {
-    const found = schedules.value.find(s => s.lich_kha_dung_id === selectedScheduleId.value)
-    if (found) return found
-  }
-  return {
-    lich_kha_dung_id: 'custom_date',
-    ngay_phuc_vu: customSelectedDate.value,
-    gia_tham_khao: journey.value?.gia_tham_khao || 500000,
-    so_cho_con_lai: 20
-  }
+  return schedules.value.find(
+    schedule =>
+      Number(schedule.lich_kha_dung_id) === Number(selectedScheduleId.value)
+  ) || null
 })
 
 const formatPrice = (price) => {
-  if (price === null || price === undefined || price === '') return 'Chưa cập nhật'
+  if (price === null || price === undefined || price === '') {
+    return 'Chưa cập nhật'
+  }
+
   return new Intl.NumberFormat('vi-VN').format(price) + 'đ'
 }
 
 const formatDate = (date) => {
   if (!date) return 'Chưa chọn ngày'
+
   const value = new Date(`${date}T00:00:00`)
   if (!Number.isFinite(value.getTime())) return date
+
   return new Intl.DateTimeFormat('vi-VN', {
     weekday: 'long',
     day: '2-digit',
@@ -467,23 +505,27 @@ const formatDate = (date) => {
 }
 
 const remainingSeats = (schedule) => {
-  if (!schedule) return 20
-  return Number(schedule.so_cho_con_lai ?? 20)
+  if (!schedule) return 0
+  return Math.max(0, Number(schedule.so_cho_con_lai ?? 0))
 }
+const handleScheduleDateChange = async (event) => {
+  const date = event.target.value
 
-function selectFlexibleMode() {
-  dateMode.value = 'flexible'
-  selectedScheduleId.value = null
+  if (!date) return
+
+  if (date < minScheduleDate || date > maxScheduleDate) {
+    scheduleError.value = 'Ngày chọn không nằm trong khoảng phục vụ.'
+    return
+  }
+
+  customSelectedDate.value = date
+
+  // Gọi API lấy lịch thực tế của ngày được chọn.
+  await fetchSchedules(date)
 }
-
-function selectSystemSchedule(id) {
-  dateMode.value = 'system'
-  selectedScheduleId.value = id
-}
-
 onMounted(async () => {
   await fetchJourneyDetail()
-  await fetchSchedules()
+  await fetchSchedules(customSelectedDate.value)
 })
 
 onUnmounted(() => {
@@ -510,115 +552,127 @@ onUnmounted(() => {
         <RouterLink to="/hanh-trinh" class="primary-button">Quay lại danh sách</RouterLink>
       </section>
 
-      <template v-else-if="journey">
-        <!-- HERO -->
-        <section class="detail-hero">
-          <div class="detail-hero-content">
-            <span class="eyebrow">HÀNH TRÌNH ẨM THỰC</span>
-            <h1>{{ journey.ten_hanh_trinh }}</h1>
-            <p>{{ journey.mo_ta }}</p>
+<template v-else-if="journey">
 
-            <div class="hero-meta">
-              <span>⏱ {{ journey.thoi_luong }}</span>
-              <span>🍽 {{ filteredDishes.length }} món ngon</span>
-            </div>
-          </div>
+  <!-- CHỌN NGÀY TRẢI NGHIỆM -->
 
-          <div v-if="journey.image" class="detail-hero-image">
-            <img :src="journey.image" :alt="journey.ten_hanh_trinh" />
-          </div>
+<!-- HERO: GIỚI THIỆU HÀNH TRÌNH -->
+<section class="detail-hero">
+  <div class="detail-hero-content">
+    <span class="eyebrow">HÀNH TRÌNH ẨM THỰC</span>
 
-          <div v-else class="detail-hero-placeholder">
-            <span>🍜</span>
-            <strong>ẨM THỰC VIỆT NAM</strong>
-          </div>
-        </section>
+    <h1>{{ journey.ten_hanh_trinh }}</h1>
 
-        <!-- ĐIỂM DỪNG ẨM THỰC CHUẨN KHỚP TỪNG HÀNH TRÌNH -->
-        <section class="content-section">
-          <div class="section-heading">
-            <span class="eyebrow">TRẢI NGHIỆM</span>
-            <h2>Điểm dừng ẩm thực</h2>
-            <p>Những món ăn đặc sắc được kết hợp trong hành trình.</p>
-          </div>
+    <p>{{ journey.mo_ta }}</p>
 
-          <div v-if="filteredDishes.length" class="dish-list">
-            <article v-for="dish in filteredDishes" :key="dish.mon_an_id" class="dish-item">
-              <div class="dish-number">{{ dish.thu_tu }}</div>
-              <div class="dish-content">
-                <h3>{{ dish.ten_mon }}</h3>
-                <p>{{ dish.ghi_chu || 'Điểm dừng ẩm thực tinh tế trong hành trình.' }}</p>
-              </div>
-            </article>
-          </div>
+    <div class="hero-meta">
+      <span>⏱ {{ journey.thoi_luong }}</span>
+      <span>🍽 {{ filteredDishes.length }} món ngon</span>
+    </div>
+  </div>
 
-          <div v-else class="empty-card">Chưa có thông tin món ăn.</div>
-        </section>
+  <div v-if="journey.image" class="detail-hero-image">
+    <img :src="journey.image" :alt="journey.ten_hanh_trinh" />
+  </div>
 
-        <!-- CHỌN NGÀY TRẢI NGHIỆM -->
-        <section class="content-section">
-          <div class="section-heading">
-            <span class="eyebrow">LỊCH PHỤC VỤ</span>
-            <h2>Chọn ngày trải nghiệm</h2>
-            <p>Lựa chọn ngày khởi hành phù hợp với lịch trình của bạn.</p>
-          </div>
+  <div v-else class="detail-hero-placeholder">
+    <span>🍜</span>
+    <strong>ẨM THỰC VIỆT NAM</strong>
+  </div>
+</section>
 
-          <div class="date-selection-grid">
-            <div
-              v-for="schedule in schedules"
-              :key="schedule.lich_kha_dung_id"
-              class="date-option-card system-card"
-              :class="{ active: dateMode === 'system' && selectedScheduleId === schedule.lich_kha_dung_id }"
-              @click="selectSystemSchedule(schedule.lich_kha_dung_id)"
-            >
-              <div class="card-radio">
-                <span class="radio-dot" v-if="dateMode === 'system' && selectedScheduleId === schedule.lich_kha_dung_id"></span>
-              </div>
-              <div class="card-body">
-                <div class="card-header-line">
-                  <span class="card-badge info">Lịch cố định</span>
-                  <span class="seat-left-badge" :class="{ 'text-danger': remainingSeats(schedule) === 0 }">
-                    {{ remainingSeats(schedule) > 0 ? `Còn ${remainingSeats(schedule)} chỗ` : 'Hết chỗ' }}
-                  </span>
-                </div>
-                <h3>{{ formatDate(schedule.ngay_phuc_vu) }}</h3>
-                <p class="date-price">Giá: <strong>{{ formatPrice(schedule.gia_tham_khao) }}</strong> / khách</p>
-              </div>
-            </div>
+<!-- DANH SÁCH MÓN ĂN -->
+<section class="content-section">
+  <div class="section-heading">
+    <span class="eyebrow">TRẢI NGHIỆM</span>
+    <h2>Điểm dừng ẩm thực</h2>
+    <p>Những món ăn đặc sắc được kết hợp trong hành trình.</p>
+  </div>
 
-            <div
-              class="date-option-card flexible-card"
-              :class="{ active: dateMode === 'flexible' }"
-              @click="selectFlexibleMode"
-            >
-              <div class="card-radio">
-                <span class="radio-dot" v-if="dateMode === 'flexible'"></span>
-              </div>
-              <div class="card-body">
-                <div class="card-header-line">
-                  <span class="card-badge">Tự do chọn ngày</span>
-                  <span class="seat-left-badge">Còn 20 chỗ</span>
-                </div>
-                <h3>Chọn ngày khác trong tương lai</h3>
-                <p class="date-subtext">Linh hoạt chọn bất kỳ ngày nào theo nhu cầu</p>
+  <div v-if="filteredDishes.length" class="dish-list">
+    <article
+      v-for="dish in filteredDishes"
+      :key="dish.mon_an_id"
+      class="dish-item"
+    >
+      <div class="dish-number">{{ dish.thu_tu }}</div>
 
-                <div class="picker-input-wrapper" @click.stop>
-                  <span class="calendar-icon">📅</span>
-                  <input
-                    v-model="customSelectedDate"
-                    type="date"
-                    min="2026-10-26"
-                    class="custom-date-picker"
-                    @focus="selectFlexibleMode"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+      <div class="dish-content">
+        <h3>{{ dish.ten_mon }}</h3>
+        <p>{{ dish.ghi_chu || 'Điểm dừng ẩm thực tinh tế trong hành trình.' }}</p>
+      </div>
+    </article>
+  </div>
 
-        <!-- BOOKING / HOLD CTA -->
-        <section v-if="selectedSchedule" class="booking-cta">
+  <div v-else class="empty-card">
+    Chưa có thông tin món ăn.
+  </div>
+</section>
+
+<!-- CHỌN NGÀY TRẢI NGHIỆM -->
+<section class="content-section">
+  <div class="section-heading">
+    <span class="eyebrow">LỊCH PHỤC VỤ</span>
+    <h2>Chọn ngày trải nghiệm</h2>
+    <p>Lựa chọn ngày khởi hành phù hợp với lịch trình của bạn.</p>
+  </div>
+
+  <div class="date-selection-grid">
+    <div class="date-option-card flexible-card active">
+      <div class="card-radio">
+        <span class="radio-dot"></span>
+      </div>
+
+      <div class="card-body">
+        <div class="card-header-line">
+          <span class="card-badge">Chọn ngày khởi hành</span>
+        </div>
+
+        <h3>Ngày trải nghiệm</h3>
+        <p class="date-subtext">
+          Chọn ngày có lịch phục vụ thực tế.
+        </p>
+
+        <div class="picker-input-wrapper">
+          <span class="calendar-icon">📅</span>
+
+          <input
+            v-model="customSelectedDate"
+            type="date"
+            :min="minScheduleDate"
+            :max="maxScheduleDate"
+            :disabled="scheduleLoading"
+            class="custom-date-picker"
+            @change="handleScheduleDateChange"
+          />
+        </div>
+
+        <p v-if="scheduleLoading" class="date-subtext">
+          Đang kiểm tra lịch khả dụng...
+        </p>
+
+        <p v-else-if="scheduleError" class="date-subtext" style="color: #dc2626;">
+          {{ scheduleError }}
+        </p>
+
+        <template v-else-if="selectedSchedule">
+          <p class="date-price">
+            Số chỗ còn lại:
+            <strong>{{ remainingSeats(selectedSchedule) }}</strong>
+          </p>
+
+          <p class="date-price">
+            Giá:
+            <strong>{{ formatPrice(selectedSchedule.gia_tham_khao) }}</strong>
+            / khách
+          </p>
+        </template>
+      </div>
+    </div>
+  </div>
+</section>
+  <!-- BOOKING / HOLD CTA -->
+  <section v-if="selectedSchedule" class="booking-cta">
           <template v-if="!holdData">
             <div class="booking-heading">
               <span class="eyebrow">GIỮ CHỖ</span>
@@ -655,7 +709,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="booking-button"
-                :disabled="holding || guestCount < 1 || remainingSeats(selectedSchedule) <= 0"
+                :disabled="holding || scheduleLoading || !selectedSchedule || !selectedScheduleId || guestCount < 1 || remainingSeats(selectedSchedule) <= 0"
                 @click="holdSeats"
               >
                 {{ holding ? 'Đang giữ chỗ...' : 'Giữ chỗ trong 15 phút' }}
