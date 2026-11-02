@@ -48,7 +48,7 @@ class DatChoHoldTest extends TestCase
     {
         LichKhaDungHanhTrinh::create([
             'hanh_trinh_id' => 1,
-            'ngay_phuc_vu' => '2026-11-01',
+            'ngay_phuc_vu' => now()->addDay()->toDateString(),
             'so_cho_total' => 5,
             'so_cho_held' => 2,
             'so_cho_sold' => 2,

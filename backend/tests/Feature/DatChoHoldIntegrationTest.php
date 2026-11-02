@@ -133,7 +133,7 @@ class DatChoHoldIntegrationTest extends TestCase
         $availabilityId = DB::table('lich_kha_dung_hanh_trinh')
             ->insertGetId([
                 'hanh_trinh_id' => $journeyId,
-                'ngay_phuc_vu' => '2026-11-01',
+                'ngay_phuc_vu' => now()->addDay()->toDateString(),
                 'so_cho_total' => 10,
                 'so_cho_held' => 1,
                 'so_cho_sold' => 2,
