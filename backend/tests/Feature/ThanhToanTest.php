@@ -100,12 +100,12 @@ class ThanhToanTest extends TestCase
         });
 
         Schema::create('giao_dich_thanh_toan', function (Blueprint $table) {
-            $table->bigIncrements('giao_dich_id');
+            $table->increments('giao_dich_id');
             $table->unsignedInteger('dat_cho_id');
-            $table->string('ma_giao_dich', 100)->unique();
+            $table->string('ma_giao_dich', 36)->unique();
             $table->decimal('so_tien', 14, 2);
-            $table->string('ket_qua');
-            $table->string('phuong_thuc', 50)->default('test');
+            $table->enum('ket_qua', ['success', 'failed']);
+            $table->string('phuong_thuc', 50);
             $table->dateTime('ngay_tao')->useCurrent();
 
             $table->foreign('dat_cho_id')
