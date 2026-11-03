@@ -1,0 +1,61 @@
+# Bản đồ số du lịch ẩm thực vùng miền — CSE703073
+
+## 1. Giới thiệu
+
+- Học phần: Lập trình ứng dụng web trong du lịch 2
+- Mã học phần: CSE703073
+- Đề tài: ĐT-11 – Bản đồ số du lịch ẩm thực vùng miền
+- Phạm vi: Tập trung dữ liệu ẩm thực của một số tỉnh/thành đại diện cho 3 miền Bắc – Trung – Nam.
+
+## 2. Mục tiêu
+
+Xây dựng ứng dụng web hỗ trợ người dùng khám phá các địa điểm và thông tin
+ẩm thực theo khu vực, phục vụ nhu cầu tìm kiếm và trải nghiệm du lịch ẩm thực.
+
+## 3. Kiến trúc và công nghệ
+
+- Backend: PHP 8.3 + Laravel 11
+- Frontend: Vue 3 + Vite
+- Cơ sở dữ liệu: MySQL 8
+- Xử lý dữ liệu: Python + pandas + scikit-learn
+- API nội bộ: FastAPI
+- CSS/UI: Bootstrap 5 hoặc CSS với biến giao diện
+- Container: Docker Compose
+
+## 4. Cấu trúc dự án
+
+```text
+backend/          # Laravel
+frontend/         # Vue + Vite
+python-service/   # Python + FastAPI
+database/         # Dữ liệu và cấu trúc cơ sở dữ liệu
+docs/             # Tài liệu, minh chứng, biên bản
+tools/            # Công cụ kiểm tra và quản trị
+.env.example      # Mẫu cấu hình môi trường
+.gitignore        # Quy tắc loại trừ tệp
+README.md         # Tài liệu dự án
+## 5. Quy tắc Git
+
+- `main`: phiên bản ổn định
+- `dev`: nhánh tích hợp phát triển
+- `feature/*`: nhánh phát triển tính năng
+- Commit sử dụng Conventional Commits.
+- Thành viên sử dụng tài khoản/email Git cá nhân khi commit.
+
+## 6. Nhóm
+
+- V1 – Nguyễn Thị Linh: Trưởng nhóm, quản trị cấu hình
+- V2 – Nguyễn Trần Diệu Linh: Dữ liệu
+- V3 – Nguyễn Linh Chi: Server/Backend
+- V4 – Đào Thị Ngọc Linh: Frontend
+- V5/V6 – Nguyễn Huy Hoàng: Kiểm thử, triển khai và tài liệu
+
+## 7. Lưu ý bảo mật
+
+Không commit các tệp `.env`, mật khẩu, token, secret, private key
+hoặc các thông tin xác thực thật vào kho mã nguồn.
+
+## 8. Ghi chú
+
+Sản phẩm được phát triển phục vụ mục đích học tập trong học phần
+CSE703073.

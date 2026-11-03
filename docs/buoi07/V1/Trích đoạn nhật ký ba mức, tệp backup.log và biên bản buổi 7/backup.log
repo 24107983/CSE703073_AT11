@@ -1,0 +1,24 @@
+NHAT KY SAO LUU DATABASE - M3 / BUOI 7
+Thoi gian ghi nhat ky: 2026-10-17 13:41:48
+Database: am_thuc_vung_mien
+May chu: 127.0.0.1:3306
+Cong cu: mysqldump MySQL 8.4.11
+File sao luu: C:\CSE703073\backend\storage\backups\am_thuc_vung_mien_20261017_134014.sql
+Dung luong (bytes): 28889
+Thoi gian tao file: 2026-10-17 13:40:15
+SHA256: 9264B1329B4F0B1167C18BC2AE60DE1AE97AEC2F53DCA734326C853EC1E2F4B2
+Kiem tra dong ket thuc dump: True
+Ket qua: TAO FILE THANH CONG; CO DONG KET THUC DUMP
+Kiem thu khoi phuc: DA THUC HIEN - XEM KET QUA BEN DUOI
+
+KET QUA KIEM THU KHOI PHUC
+Thoi gian kiem thu: 2026-10-17 13:46:30
+Database thu nghiem: am_thuc_vung_mien_restore_test
+Lenh nhap file SQL: KHONG BAO LOI
+So bang sau khoi phuc: 24
+So dia diem: 10
+So mon an: 10
+So tinh thanh: 9
+So vung mien: 3
+Ket luan: KHOI PHUC THU NGHIEM THANH CONG
+
