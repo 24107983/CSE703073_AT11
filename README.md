@@ -74,9 +74,11 @@ npm run dev
 
 | STT | Họ và tên | Vai trò | Lớp / Khóa |
 | --- | --- | --- | --- |
-| 1 | **Nguyễn Thị Linh** | Trưởng nhóm / Fullstack Dev | Kinh doanh du lịch số - K18 |
-| 2 | **Đào Thị Ngọc Linh** | Frontend Developer | Kinh doanh du lịch số - K18 |
-| 3 | *(Thành viên nhóm)* | Backend / Database Dev | Kinh doanh du lịch số - K18 |
+| 1 | **Nguyễn Thị Linh** | Trưởng nhóm, quản trị Git, triển khai và tài liệu | Kinh doanh du lịch số - K18 |
+| 2 | **Nguyễn Trần Diệu Linh** | V2 – Quản lý Dữ liệu | Kinh doanh du lịch số - K18 |
+| 3 | **Nguyễn Linh Chi** | Backend | Kinh doanh du lịch số - K18 |
+| 4 | **Đào Thị Ngọc Linh** | Frontend Developer | Kinh doanh du lịch số - K18 |
+| 5 | **Nguyễn Huy Hoàng** | Kiểm thử \& Triển khai | Kinh doanh du lịch số - K18 |
 
 ---
 
