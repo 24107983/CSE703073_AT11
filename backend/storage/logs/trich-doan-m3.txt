@@ -1,0 +1,87 @@
+﻿
+backend\storage\logs\laravel.log:1:[2026-10-09 16:22:01] production.ERROR: 
+Database file at path [C:\CSE703073\backend\database\database.sqlite] does 
+not exist. Ensure this is an absolute path to the database. (Connection: 
+sqlite, SQL: update "cache_locks" set "owner" = EvfP6I2GxnWMhcc6, 
+"expiration" = 1791649321 where "key" = 
+laravel_cache_framework\schedule-0dd41b6cf46707cbf5b912f0cf0cf936b5618f01 
+and ("owner" = EvfP6I2GxnWMhcc6 or "expiration" <= 1791562921)) 
+{"exception":"[object] (Illuminate\\Database\\QueryException(code: 0): 
+Database file at path [C:\\CSE703073\\backend\\database\\database.sqlite] 
+does not exist. Ensure this is an absolute path to the database. 
+(Connection: sqlite, SQL: update \"cache_locks\" set \"owner\" = 
+EvfP6I2GxnWMhcc6, \"expiration\" = 1791649321 where \"key\" = 
+laravel_cache_framework\\schedule-0dd41b6cf46707cbf5b912f0cf0cf936b5618f01 
+and (\"owner\" = EvfP6I2GxnWMhcc6 or \"expiration\" <= 1791562921)) at C:/C
+SE703073/backend/vendor/laravel/framework/src/Illuminate/Database/Connectio
+n.php:825)
+backend\storage\logs\laravel.log:82:[2026-10-09 16:28:07] local.ERROR: 
+SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using 
+password: NO) {"exception":"[object] (PDOException(code: 1045): 
+SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using 
+password: NO) at C:/CSE703073/backend/vendor/laravel/framework/src/Illumina
+te/Database/Connectors/Connector.php:66)
+backend\storage\logs\laravel.log:109:[2026-10-09 16:28:38] local.ERROR: 
+SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using 
+password: NO) {"exception":"[object] (PDOException(code: 1045): 
+SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using 
+password: NO) at C:/CSE703073/backend/vendor/laravel/framework/src/Illumina
+te/Database/Connectors/Connector.php:66)
+backend\storage\logs\laravel.log:136:[2026-10-09 16:33:34] local.ERROR: 
+SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using 
+password: NO) {"exception":"[object] (PDOException(code: 1045): 
+SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using 
+password: NO) at C:/CSE703073/backend/vendor/laravel/framework/src/Illumina
+te/Database/Connectors/Connector.php:66)
+backend\storage\logs\laravel.log:163:[2026-10-09 16:39:55] local.ERROR: 
+SQLSTATE[42S02]: Base table or view not found: 1146 Table 
+'am_thuc_vung_mien.cache_locks' doesn't exist (Connection: mysql, SQL: 
+update `cache_locks` set `owner` = ZZySYkvXzmDO0buy, `expiration` = 
+1791650395 where `key` = 
+framework\schedule-0dd41b6cf46707cbf5b912f0cf0cf936b5618f01 and (`owner` = 
+ZZySYkvXzmDO0buy or `expiration` <= 1791563995)) {"exception":"[object] 
+(Illuminate\\Database\\QueryException(code: 42S02): SQLSTATE[42S02]: Base 
+table or view not found: 1146 Table 'am_thuc_vung_mien.cache_locks' 
+doesn't exist (Connection: mysql, SQL: update `cache_locks` set `owner` = 
+ZZySYkvXzmDO0buy, `expiration` = 1791650395 where `key` = 
+framework\\schedule-0dd41b6cf46707cbf5b912f0cf0cf936b5618f01 and (`owner` 
+= ZZySYkvXzmDO0buy or `expiration` <= 1791563995)) at C:/CSE703073/backend/
+vendor/laravel/framework/src/Illuminate/Database/Connection.php:825)
+backend\storage\logs\laravel.log:241:[2026-10-09 16:46:47] local.ERROR: 
+There are no commands defined in the "dat-cho" namespace. 
+{"exception":"[object] 
+(Symfony\\Component\\Console\\Exception\\NamespaceNotFoundException(code: 
+0): There are no commands defined in the \"dat-cho\" namespace. at 
+C:/CSE703073/backend/vendor/symfony/console/Application.php:694)
+backend\storage\logs\laravel.log:251:[2026-10-09 17:00:00] local.ERROR: 
+SQLSTATE[42S02]: Base table or view not found: 1146 Table 
+'am_thuc_vung_mien.dat_cho' doesn't exist (Connection: mysql, SQL: select 
+* from `dat_cho` where `trang_thai` = pending_payment and `het_han_giu` is 
+not null and `het_han_giu` <= 2026-10-09 16:59:59 order by `dat_cho_id` 
+asc limit 100) {"exception":"[object] 
+(Illuminate\\Database\\QueryException(code: 42S02): SQLSTATE[42S02]: Base 
+table or view not found: 1146 Table 'am_thuc_vung_mien.dat_cho' doesn't 
+exist (Connection: mysql, SQL: select * from `dat_cho` where `trang_thai` 
+= pending_payment and `het_han_giu` is not null and `het_han_giu` <= 
+2026-10-09 16:59:59 order by `dat_cho_id` asc limit 100) at C:/CSE703073/ba
+ckend/vendor/laravel/framework/src/Illuminate/Database/Connection.php:825)
+backend\storage\logs\laravel.log:313:[2026-10-09 17:56:05] 
+laravel.EMERGENCY: Unable to create configured logger. Using emergency 
+logger. {"exception":"[object] (InvalidArgumentException(code: 0): Log [] 
+is not defined. at C:/CSE703073/backend/vendor/laravel/framework/src/Illumi
+nate/Log/LogManager.php:232)
+backend\storage\logs\laravel.log:326:[2026-10-09 17:56:05] laravel.ERROR: 
+syntax error, unexpected token "<<", expecting "]" {"exception":"[object] 
+(ParseError(code: 0): syntax error, unexpected token \"<<\", expecting 
+\"]\" at C:/CSE703073/backend/config/database.php:52)
+backend\storage\logs\laravel.log:338:[2026-10-09 18:01:04] 
+laravel.EMERGENCY: Unable to create configured logger. Using emergency 
+logger. {"exception":"[object] (InvalidArgumentException(code: 0): Log [] 
+is not defined. at C:/CSE703073/backend/vendor/laravel/framework/src/Illumi
+nate/Log/LogManager.php:232)
+backend\storage\logs\laravel.log:351:[2026-10-09 18:01:04] laravel.ERROR: 
+syntax error, unexpected token "<<", expecting "]" {"exception":"[object] 
+(ParseError(code: 0): syntax error, unexpected token \"<<\", expecting 
+\"]\" at C:/CSE703073/backend/config/database.php:52)
+
+

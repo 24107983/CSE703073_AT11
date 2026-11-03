@@ -1,0 +1,1 @@
+{"version":2,"defects":{"Tests\\Feature\\BookingConcurrencyTest::test_only_one_booking_can_hold_the_last_seat":8},"times":{"Tests\\Feature\\BookingConcurrencyTest::test_only_one_booking_can_hold_the_last_seat":0.805}}
