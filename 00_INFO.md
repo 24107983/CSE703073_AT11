@@ -19,7 +19,7 @@
 
 ### 3\. Liên kết kho mã nguồn Git và tên thẻ phát hành
 
-* **Kho mã nguồn Git (Repository):** https://github.com/24107983/CSE703073\_AT11
+* **Kho mã nguồn Git (Repository):** https://github.com/24107983/CSE703073_AT11
 * **Tên thẻ phát hành (Release Tag):** `v1.0.0`
 
 ### 4\. Địa chỉ website đã triển khai và ghi chú vận hành
